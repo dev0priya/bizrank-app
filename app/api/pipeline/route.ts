@@ -33,6 +33,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'Pipeline executed successfully', records: auditedData.length, leads: leads.length });
     } catch (error: any) {
         console.error('Pipeline failed:', error);
-        return NextResponse.json({ error: 'Pipeline execution failed.', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Pipeline execution failed.', details: error.message }, { status: 503 });
     }
 }

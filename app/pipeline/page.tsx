@@ -1,11 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma, safeDbQuery } from '../../src/lib/prisma';
 import KanbanBoard from './KanbanBoard';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PipelinePage() {
-  const prisma = new PrismaClient();
-  const businesses = await prisma.business.findMany();
+  const businesses = await safeDbQuery(() => prisma.business.findMany()) || [];
 
   return (
     <div>

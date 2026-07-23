@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { parse } from 'json2csv';
 import * as xlsx from 'xlsx';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './lib/prisma';
 import { Config } from './config';
 import { AuditedBusiness } from './auditor';
 import { Lead } from './qualifier';
@@ -62,10 +62,7 @@ export class StorageHandler {
             return;
         }
         
-        const prisma = new PrismaClient();
         try {
-            await prisma.$connect();
-            
             for (const row of this.data) {
                 // Determine CRM Status based on pipeline auto-updates
                 // Default: Collected
@@ -118,9 +115,7 @@ export class StorageHandler {
             }
             console.log(`Data successfully saved to Database with CRM Timelines.`);
         } catch (err: any) {
-            console.log(`Failed to save to DB via Prisma: ${err.message}`);
-        } finally {
-            await prisma.$disconnect();
+            console.error(`Failed to save to DB via Prisma: ${err.message}`);
         }
     }
 }

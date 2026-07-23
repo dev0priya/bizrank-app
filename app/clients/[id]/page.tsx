@@ -1,20 +1,19 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma, safeDbQuery } from '../../../src/lib/prisma';
 import { notFound } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ClientProfilePage({ params }: { params: { id: string } }) {
-  const prisma = new PrismaClient();
   const id = parseInt(params.id, 10);
   
-  const biz = await prisma.business.findUnique({
+  const biz = await safeDbQuery(() => prisma.business.findUnique({
     where: { id },
     include: {
       timeline_events: { orderBy: { timestamp: 'desc' } },
       notes: { orderBy: { timestamp: 'desc' } },
       tasks: { orderBy: { dueDate: 'asc' } }
     }
-  });
+  }));
 
   if (!biz) return notFound();
 

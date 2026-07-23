@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../../src/lib/prisma';
 
 export async function POST(request: Request) {
-  const prisma = new PrismaClient();
   try {
     const { id, status } = await request.json();
     
@@ -28,8 +27,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Status update failed:', error);
-    return NextResponse.json({ error: 'Failed to update status', details: error.message }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
+    return NextResponse.json({ error: 'Failed to update status', details: error.message }, { status: 503 });
   }
 }

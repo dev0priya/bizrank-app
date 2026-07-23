@@ -1,21 +1,19 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma, safeDbQuery } from '../src/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-  const prisma = new PrismaClient();
+  const totalLeads = await safeDbQuery(() => prisma.business.count()) || 0;
+  const qualifiedLeads = await safeDbQuery(() => prisma.business.count({ where: { crm_status: 'Qualified Lead' } })) || 0;
+  const contactedLeads = await safeDbQuery(() => prisma.business.count({ where: { crm_status: 'Contacted' } })) || 0;
+  const wonClients = await safeDbQuery(() => prisma.business.count({ where: { crm_status: 'Client Won' } })) || 0;
+  const lostClients = await safeDbQuery(() => prisma.business.count({ where: { crm_status: 'Client Lost' } })) || 0;
   
-  const totalLeads = await prisma.business.count();
-  const qualifiedLeads = await prisma.business.count({ where: { crm_status: 'Qualified Lead' } });
-  const contactedLeads = await prisma.business.count({ where: { crm_status: 'Contacted' } });
-  const wonClients = await prisma.business.count({ where: { crm_status: 'Client Won' } });
-  const lostClients = await prisma.business.count({ where: { crm_status: 'Client Lost' } });
-  
-  const totalRevenueData = await prisma.business.aggregate({
+  const totalRevenueData = await safeDbQuery(() => prisma.business.aggregate({
     _sum: { revenue: true },
     where: { crm_status: 'Client Won' }
-  });
-  const revenue = totalRevenueData._sum.revenue || 0;
+  }));
+  const revenue = totalRevenueData?._sum?.revenue || 0;
 
   const conversionRate = totalLeads > 0 ? ((wonClients / totalLeads) * 100).toFixed(1) : "0.0";
 

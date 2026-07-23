@@ -1,14 +1,12 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma, safeDbQuery } from '../../src/lib/prisma';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ClientDirectoryPage() {
-  const prisma = new PrismaClient();
-  
-  const businesses = await prisma.business.findMany({
+  const businesses = await safeDbQuery(() => prisma.business.findMany({
     orderBy: { crm_status: 'asc' }
-  });
+  })) || [];
 
   return (
     <div>
