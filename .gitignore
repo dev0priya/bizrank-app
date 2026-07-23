@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Vercel
+.vercel/
+
+# Build
+dist/
+build/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Coverage
+coverage/
+
+.env
+.env.*
+!.env.example

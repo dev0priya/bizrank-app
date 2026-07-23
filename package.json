@@ -1,0 +1,40 @@
+{
+  "name": "business-collection",
+  "version": "1.0.0",
+  "description": "Business Collection module (Production Ready)",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@prisma/client": "^5.10.0",
+    "@vercel/node": "^5.8.26",
+    "apify-client": "^2.9.2",
+    "axios": "^1.6.7",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.4.5",
+    "json2csv": "^6.0.0-alpha.2",
+    "next": "^16.2.11",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/json2csv": "^5.0.7",
+    "@types/node": "^20.11.20",
+    "@types/react": "19.2.17",
+    "@typescript-eslint/eslint-plugin": "^7.1.0",
+    "@typescript-eslint/parser": "^7.1.0",
+    "eslint": "^8.57.0",
+    "prisma": "^5.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

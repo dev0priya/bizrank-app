@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Business {
+  id                      Int      @id @default(autoincrement())
+  business_name           String
+  category                String?
+  full_address            String?
+  area                    String?
+  city                    String?
+  state                   String?
+  country                 String?
+  phone_number            String?
+  website                 String?
+  google_maps_url         String   @unique
+  rating                  Float?
+  review_count            Int?
+  latitude                Float?
+  longitude               Float?
+  
+  audit_mobile_responsive Boolean?
+  audit_https             Boolean?
+  audit_navigation        Boolean?
+  audit_ui_design         Boolean?
+  audit_typography        Boolean?
+  audit_cta               Boolean?
+  audit_contact_visibility Boolean?
+  audit_images            Boolean?
+  audit_branding          Boolean?
+  audit_loading_speed     Boolean?
+  audit_accessibility     Boolean?
+  website_score           Int?
+  website_classification  String?
+
+  // CRM specific fields
+  crm_status              String   @default("New")
+  priority                String?  // Priority A, B, C
+  revenue                 Float?
+  assigned_user           String?
+
+  // Relations
+  timeline_events         TimelineEvent[]
+  notes                   Note[]
+  tasks                   Task[]
+
+  @@map("businesses")
+}
+
+model TimelineEvent {
+  id          Int      @id @default(autoincrement())
+  timestamp   DateTime @default(now())
+  action      String
+  notes       String?
+  user        String?
+  
+  business_id Int
+  business    Business @relation(fields: [business_id], references: [id], onDelete: Cascade)
+
+  @@map("timeline_events")
+}
+
+model Note {
+  id          Int      @id @default(autoincrement())
+  timestamp   DateTime @default(now())
+  author      String
+  content     String
+  
+  business_id Int
+  business    Business @relation(fields: [business_id], references: [id], onDelete: Cascade)
+
+  @@map("notes")
+}
+
+model Task {
+  id            Int      @id @default(autoincrement())
+  dueDate       DateTime
+  priority      String   // High, Medium, Low
+  status        String   // Pending, Completed
+  assignedUser  String
+  content       String
+  
+  business_id   Int
+  business      Business @relation(fields: [business_id], references: [id], onDelete: Cascade)
+
+  @@map("tasks")
+}
