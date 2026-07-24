@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Sidebar } from '../components/Sidebar';
 import { Topbar } from '../components/Topbar';
+import { Footer } from '../components/Footer';
 
 export const metadata: Metadata = {
   title: 'BizRank SaaS',
@@ -21,8 +22,11 @@ export default function RootLayout({
           
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
             <Topbar />
-            <main className="main-content" style={{ flex: 1, overflowY: 'auto' }}>
-              {children}
+            <main className="main-content" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ flex: 1 }}>
+                {children}
+              </div>
+              <Footer />
             </main>
           </div>
         </div>
