@@ -20,16 +20,16 @@ export default function RootLayout({
             <div className="sidebar-logo">BizRank.</div>
             
             <Link href="/" className="nav-link">
-              Dashboard
+              📊 Dashboard
             </Link>
             <Link href="/discovery" className="nav-link">
-              Discovery Engine
+              🔍 Discovery Engine
             </Link>
             <Link href="/pipeline" className="nav-link">
-              Pipeline (Kanban)
+              🚀 Pipeline (Kanban)
             </Link>
             <Link href="/clients" className="nav-link">
-              Client Directory
+              👥 Client Directory
             </Link>
             
             <div style={{ marginTop: 'auto', padding: '16px', fontSize: '12px', color: 'var(--text-muted)' }}>

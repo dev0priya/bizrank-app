@@ -11,6 +11,7 @@ export default function DiscoveryPage() {
     const [selectedCity, setSelectedCity] = useState('');
     const [selectedArea, setSelectedArea] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
+    const [maxResults, setMaxResults] = useState(20);
     
     // Job state
     const [jobId, setJobId] = useState<number | null>(null);
@@ -52,6 +53,7 @@ export default function DiscoveryPage() {
             city: masterData.cities.find((c: any) => c.id === parseInt(selectedCity))?.name || '',
             area: masterData.areas.find((a: any) => a.id === parseInt(selectedArea))?.name || '',
             category: masterData.categories.find((c: any) => c.id === parseInt(selectedCategory))?.name || '',
+            maxResults
         };
 
         const res = await fetch('/api/jobs', {
@@ -141,38 +143,42 @@ export default function DiscoveryPage() {
             <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: '200px' }}>
                     <label>Country</label>
-                    <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px' }}>
+                    <select value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '4px' }}>
                         <option value="">Select Country</option>
                         {masterData.countries.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </div>
                 <div style={{ flex: 1, minWidth: '200px' }}>
                     <label>State</label>
-                    <select value={selectedState} onChange={e => setSelectedState(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px' }}>
+                    <select value={selectedState} onChange={e => setSelectedState(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '4px' }}>
                         <option value="">Select State</option>
                         {availableStates.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                 </div>
                 <div style={{ flex: 1, minWidth: '200px' }}>
                     <label>City</label>
-                    <select value={selectedCity} onChange={e => setSelectedCity(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px' }}>
+                    <select value={selectedCity} onChange={e => setSelectedCity(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '4px' }}>
                         <option value="">Select City</option>
                         {availableCities.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </div>
                 <div style={{ flex: 1, minWidth: '200px' }}>
                     <label>Area</label>
-                    <select value={selectedArea} onChange={e => setSelectedArea(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px' }}>
+                    <select value={selectedArea} onChange={e => setSelectedArea(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '4px' }}>
                         <option value="">Select Area</option>
                         {availableAreas.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </select>
                 </div>
                 <div style={{ flex: 1, minWidth: '200px' }}>
                     <label>Category</label>
-                    <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px' }}>
+                    <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} style={{ width: '100%', padding: '8px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '4px' }}>
                         <option value="">Select Category</option>
                         {masterData.categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
+                </div>
+                <div style={{ flex: 1, minWidth: '100px' }}>
+                    <label>Max Results</label>
+                    <input type="number" value={maxResults} onChange={e => setMaxResults(parseInt(e.target.value) || 10)} min="1" max="100" style={{ width: '100%', padding: '8px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '4px' }} />
                 </div>
             </div>
 
@@ -185,7 +191,7 @@ export default function DiscoveryPage() {
             </button>
 
             {jobStatus === 'Running' && (
-                <div style={{ marginTop: '16px', background: 'var(--surface)', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ marginTop: '16px', background: 'var(--panel-bg)', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
                     <div style={{ width: `${progress}%`, height: '100%', background: 'var(--status-won)', transition: 'width 0.3s ease' }} />
                 </div>
             )}
@@ -209,10 +215,10 @@ export default function DiscoveryPage() {
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         Min Rating:
-                        <input type="number" min="0" max="5" step="0.1" value={minRating} onChange={e => setMinRating(parseFloat(e.target.value))} style={{ width: '60px', padding: '4px', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }} />
+                        <input type="number" min="0" max="5" step="0.1" value={minRating} onChange={e => setMinRating(parseFloat(e.target.value))} style={{ width: '60px', padding: '4px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} />
                     </label>
                 </div>
-                <button onClick={exportCSV} style={{ background: 'var(--surface)', color: 'var(--text)', padding: '8px 16px', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer' }}>
+                <button onClick={exportCSV} style={{ background: 'var(--panel-bg)', color: 'var(--text-main)', padding: '8px 16px', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer' }}>
                     Export CSV
                 </button>
             </div>
@@ -271,7 +277,7 @@ export default function DiscoveryPage() {
                 <button 
                     disabled={page === 1} 
                     onClick={() => setPage(p => p - 1)}
-                    style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}
+                    style={{ background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}
                 >
                     Previous
                 </button>
@@ -279,7 +285,7 @@ export default function DiscoveryPage() {
                 <button 
                     disabled={page === totalPages || totalPages === 0} 
                     onClick={() => setPage(p => p + 1)}
-                    style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}
+                    style={{ background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}
                 >
                     Next
                 </button>

@@ -6,7 +6,9 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
         const { country, state, city, area, category, maxResults } = body;
-
+        console.log(`\n--- OUTGOING APIFY PAYLOAD ---`);
+        console.log(`Payload: ${JSON.stringify({ country, state, city, area, category, maxResults }, null, 2)}`);
+        
         const scraper = new GoogleMapsScraper();
         
         // Start run async
