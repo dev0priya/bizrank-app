@@ -256,77 +256,94 @@ export default function BusinessDiscoveryPage() {
                     <div className="card-grid">
                         {businesses.map(b => (
                             <div key={b.id} className="card">
-                                <div className="card-header">
-                                    <div style={{ overflow: 'hidden' }}>
-                                        <div className="card-title" title={b.business_name}>{b.business_name}</div>
-                                        <div className="card-subtitle">
-                                            <Target size={12} /> {b.google_category || b.category?.name || 'N/A'}
+                                {/* HEADER */}
+                                <div className="card-header" style={{ flexDirection: 'column', gap: '12px', marginBottom: 0 }}>
+                                    <div>
+                                        <div className="card-title">{b.business_name}</div>
+                                        <div className="card-subtitle" style={{ fontSize: '14px', marginBottom: '8px' }}>
+                                            <Target size={14} /> {b.google_category || b.category?.name || 'N/A'}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)', fontWeight: 500 }}>
+                                            <Star size={16} color="#f59e0b" fill="#f59e0b" />
+                                            <span>{b.rating || 'N/A'} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({b.review_count || 0} reviews)</span></span>
+                                        </div>
+                                        <div className="card-scores">
+                                            <span className={`badge ${b.opportunity_score >= 70 ? 'badge-priority-b' : 'badge-priority-a'}`}>
+                                                Opportunity: {b.opportunity_score || 0}
+                                            </span>
+                                            <span className={`badge ${b.ai_score >= 70 ? 'badge-priority-c' : 'badge-priority-a'}`}>
+                                                AI Score: {b.ai_score || 0}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="card-body">
-                                    <div className="card-detail-row" style={{ color: 'var(--text-main)', fontWeight: 500 }}>
-                                        <Star size={14} color="#f59e0b" fill="#f59e0b" className="card-detail-icon" />
-                                        <span>{b.rating || 'N/A'} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({b.review_count || 0} reviews)</span></span>
-                                    </div>
-                                    <div className="card-detail-row">
-                                        <MapPin size={14} className="card-detail-icon" />
-                                        <span title={b.full_address || b.city?.name || 'N/A'} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {/* BODY */}
+                                <div className="card-body" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div className="card-detail-row" style={{ marginBottom: '12px' }}>
+                                        <MapPin size={16} className="card-detail-icon" />
+                                        <span style={{ whiteSpace: 'normal', wordWrap: 'break-word', lineHeight: 1.5 }}>
                                             {b.full_address || b.city?.name || 'N/A'}
                                         </span>
                                     </div>
                                     {b.phone_number && (
-                                        <div className="card-detail-row">
-                                            <Phone size={14} className="card-detail-icon" />
+                                        <div className="card-detail-row" style={{ marginBottom: '12px' }}>
+                                            <Phone size={16} className="card-detail-icon" />
                                             <span>{b.phone_number}</span>
                                         </div>
                                     )}
                                     {b.website && (
+                                        <div className="card-detail-row" style={{ marginBottom: '12px' }}>
+                                            <Globe size={16} className="card-detail-icon" />
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <span style={{ color: 'var(--status-won)', fontWeight: 500 }}>Website Active</span>
+                                                <a href={b.website} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', textDecoration: 'none', wordBreak: 'break-all' }}>
+                                                    {b.website}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {b.google_maps_url && (
                                         <div className="card-detail-row">
-                                            <Globe size={14} className="card-detail-icon" />
-                                            <span style={{ color: 'var(--status-won)' }}>Website Active</span>
+                                            <MapPin size={16} className="card-detail-icon" />
+                                            <a href={b.google_maps_url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', textDecoration: 'none', wordBreak: 'break-all' }}>
+                                                {b.google_maps_url}
+                                            </a>
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="card-scores">
-                                    <span className={`badge ${b.ai_score >= 70 ? 'badge-priority-c' : 'badge-priority-a'}`} style={{ flex: 1, textAlign: 'center' }}>
-                                        AI: {b.ai_score || 0}
-                                    </span>
-                                    <span className={`badge ${b.opportunity_score >= 70 ? 'badge-priority-b' : 'badge-priority-a'}`} style={{ flex: 1, textAlign: 'center' }}>
-                                        Opp: {b.opportunity_score || 0}
-                                    </span>
-                                </div>
-
-                                <div className="card-actions">
+                                {/* FOOTER */}
+                                <div className="card-actions" style={{ flexWrap: 'wrap' }}>
                                     {b.google_maps_url && (
-                                        <a href={b.google_maps_url} target="_blank" rel="noreferrer" className="btn-icon" title="Open Maps">
-                                            <MapPin size={16} />
+                                        <a href={b.google_maps_url} target="_blank" rel="noreferrer" className="btn-icon">
+                                            <MapPin size={16} /> Open Maps
                                         </a>
                                     )}
                                     {b.website && (
-                                        <a href={b.website} target="_blank" rel="noreferrer" className="btn-icon" title="Visit Website">
-                                            <Globe size={16} />
+                                        <a href={b.website} target="_blank" rel="noreferrer" className="btn-icon">
+                                            <Globe size={16} /> Visit Website
                                         </a>
                                     )}
-                                    <Link href={`/business/${b.id}`} className="btn-icon" title="View Details">
-                                        <ExternalLink size={16} />
+                                    <Link href={`/business/${b.id}`} className="btn-icon">
+                                        <ExternalLink size={16} /> View Details
                                     </Link>
                                     <button 
                                         onClick={() => handleQualify(b.id)}
                                         disabled={b.discovery_status === 'Qualified'}
                                         className={`btn-icon ${b.discovery_status === 'Qualified' ? '' : 'primary'}`}
-                                        title={b.discovery_status === 'Qualified' ? "Already Qualified" : "Qualify to CRM"} 
                                         style={{ cursor: b.discovery_status === 'Qualified' ? 'not-allowed' : 'pointer', opacity: b.discovery_status === 'Qualified' ? 0.5 : 1 }}
                                     >
-                                        {b.discovery_status === 'Qualified' ? <CheckCircle2 size={16} /> : <Plus size={16} />}
+                                        {b.discovery_status === 'Qualified' ? <CheckCircle2 size={16} /> : <Plus size={16} />} 
+                                        {b.discovery_status === 'Qualified' ? "Already Qualified" : "Add to CRM"}
                                     </button>
                                 </div>
                             </div>
                         ))}
                         {businesses.length === 0 && (
-                            <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                 No businesses found in this collection.
                             </div>
                         )}
