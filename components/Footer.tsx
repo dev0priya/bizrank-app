@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Github, Linkedin, Mail, ExternalLink } from 'lucide-react';
+import { User, Briefcase, Mail, ExternalLink } from 'lucide-react';
 
 export function Footer() {
   const devEmail = process.env.NEXT_PUBLIC_DEV_EMAIL || 'priya@example.com';
@@ -76,10 +76,10 @@ export function Footer() {
               <Mail size={18} />
             </a>
             <a href={devGithub} target="_blank" rel="noreferrer" title="GitHub" style={{ color: 'var(--text-muted)' }}>
-              <Github size={18} />
+              <User size={18} />
             </a>
             <a href={devLinkedin} target="_blank" rel="noreferrer" title="LinkedIn" style={{ color: 'var(--text-muted)' }}>
-              <Linkedin size={18} />
+              <Briefcase size={18} />
             </a>
             <a href={devPortfolio} target="_blank" rel="noreferrer" title="Portfolio" style={{ color: 'var(--text-muted)' }}>
               <ExternalLink size={18} />
