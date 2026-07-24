@@ -36,3 +36,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
+export async function GET() {
+    try {
+        const jobs = await prisma.collectionJob.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+            include: {
+                _count: {
+                    select: { businesses: true }
+                }
+            }
+        });
+        return NextResponse.json(jobs);
+    } catch (error: any) {
+        console.error('Failed to fetch jobs:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}

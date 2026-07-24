@@ -12,6 +12,7 @@ export async function GET(request: Request) {
         const hasPhone = searchParams.get('hasPhone');
         const minRating = parseFloat(searchParams.get('minRating') || '0');
         const categoryId = searchParams.get('categoryId');
+        const jobId = searchParams.get('jobId');
 
         const where: any = {};
         
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
         if (hasPhone === 'true') where.phone_number = { not: null };
         if (minRating > 0) where.rating = { gte: minRating };
         if (categoryId) where.category_id = parseInt(categoryId);
+        if (jobId) where.job_id = parseInt(jobId);
 
         const businesses = await prisma.business.findMany({
             where,
