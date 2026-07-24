@@ -13,7 +13,7 @@ export default async function CRMPage() {
         include: {
             category: true
         },
-        orderBy: { updated_at: 'desc' }
+        orderBy: { collection_date: 'desc' }
     });
 
     return <CRMClient initialDeals={deals} />;
