@@ -21,9 +21,11 @@
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.4.5",
     "json2csv": "^6.0.0-alpha.2",
+    "lucide-react": "^1.26.0",
     "next": "^16.2.11",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "recharts": "^3.10.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

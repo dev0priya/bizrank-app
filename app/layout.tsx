@@ -1,10 +1,11 @@
 import './globals.css';
-import Link from 'next/link';
 import type { Metadata } from 'next';
+import { Sidebar } from '../components/Sidebar';
+import { Topbar } from '../components/Topbar';
 
 export const metadata: Metadata = {
-  title: 'BizRank CRM',
-  description: 'Ultimate Lead Management Platform',
+  title: 'BizRank SaaS',
+  description: 'Production-grade Business Discovery SaaS Platform',
 };
 
 export default function RootLayout({
@@ -16,31 +17,14 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <div className="app-container">
-          <nav className="sidebar">
-            <div className="sidebar-logo">BizRank.</div>
-            
-            <Link href="/" className="nav-link">
-              📊 Dashboard
-            </Link>
-            <Link href="/discovery" className="nav-link">
-              🔍 Discovery Engine
-            </Link>
-            <Link href="/pipeline" className="nav-link">
-              🚀 Pipeline (Kanban)
-            </Link>
-            <Link href="/clients" className="nav-link">
-              👥 Client Directory
-            </Link>
-            
-            <div style={{ marginTop: 'auto', padding: '16px', fontSize: '12px', color: 'var(--text-muted)' }}>
-              BizRank CRM v2.0 <br/>
-              Production Ready
-            </div>
-          </nav>
+          <Sidebar />
           
-          <main className="main-content">
-            {children}
-          </main>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+            <Topbar />
+            <main className="main-content" style={{ flex: 1, overflowY: 'auto' }}>
+              {children}
+            </main>
+          </div>
         </div>
       </body>
     </html>
