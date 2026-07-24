@@ -253,78 +253,83 @@ export default function BusinessDiscoveryPage() {
                 <div className="glass-panel">
                     <h3 style={{ marginBottom: '20px' }}>Current Search Results</h3>
                     
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                            <thead>
-                                <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', textAlign: 'left' }}>
-                                    <th style={{ padding: '12px' }}>Business</th>
-                                    <th style={{ padding: '12px' }}>Category</th>
-                                    <th style={{ padding: '12px' }}>Rating</th>
-                                    <th style={{ padding: '12px' }}>Contact Info</th>
-                                    <th style={{ padding: '12px' }}>Location</th>
-                                    <th style={{ padding: '12px' }}>Scores</th>
-                                    <th style={{ padding: '12px' }}>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {businesses.map(b => (
-                                    <tr key={b.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                        <td style={{ padding: '12px', fontWeight: 600 }}>{b.business_name}</td>
-                                        <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{b.category?.name || 'N/A'}</td>
-                                        <td style={{ padding: '12px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <Star size={14} color="#f59e0b" fill="#f59e0b" />
-                                                <span>{b.rating || 'N/A'} ({b.review_count || 0})</span>
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '12px' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                {b.phone_number ? <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Phone size={12}/> {b.phone_number}</span> : null}
-                                                {b.website ? <a href={b.website} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-primary)', textDecoration: 'none' }}><Globe size={12}/> Website</a> : null}
-                                                {b.email ? <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Mail size={12}/> {b.email}</span> : null}
-                                                {!b.phone_number && !b.website && !b.email && <span style={{ color: 'var(--text-muted)' }}>No contact info</span>}
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '12px', color: 'var(--text-muted)' }}>
-                                            {b.area ? `${b.area.name}, ` : ''}{b.city?.name || 'N/A'}
-                                        </td>
-                                        <td style={{ padding: '12px' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                <span className={`badge ${b.ai_score >= 70 ? 'badge-priority-c' : 'badge-priority-a'}`}>AI: {b.ai_score}</span>
-                                                <span className={`badge ${b.opportunity_score >= 70 ? 'badge-priority-b' : 'badge-priority-a'}`}>Opp: {b.opportunity_score}</span>
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '12px' }}>
-                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                {b.google_maps_url && (
-                                                    <a href={b.google_maps_url} target="_blank" rel="noreferrer" title="Open Maps" style={{ color: 'var(--text-muted)' }}>
-                                                        <MapPin size={16} />
-                                                    </a>
-                                                )}
-                                                <Link href={`/business/${b.id}`} title="View Details" style={{ color: 'var(--text-muted)' }}>
-                                                    <ExternalLink size={16} />
-                                                </Link>
-                                                <button 
-                                                    onClick={() => handleQualify(b.id)}
-                                                    disabled={b.discovery_status === 'Qualified'}
-                                                    title={b.discovery_status === 'Qualified' ? "Already Qualified" : "Qualify to CRM"} 
-                                                    style={{ background: 'none', border: 'none', color: b.discovery_status === 'Qualified' ? 'var(--text-muted)' : 'var(--accent-primary)', cursor: b.discovery_status === 'Qualified' ? 'not-allowed' : 'pointer' }}
-                                                >
-                                                    <Plus size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {businesses.length === 0 && (
-                                    <tr>
-                                        <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                            No businesses found in this collection.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                    <div className="card-grid">
+                        {businesses.map(b => (
+                            <div key={b.id} className="card">
+                                <div className="card-header">
+                                    <div style={{ overflow: 'hidden' }}>
+                                        <div className="card-title" title={b.business_name}>{b.business_name}</div>
+                                        <div className="card-subtitle">
+                                            <Target size={12} /> {b.google_category || b.category?.name || 'N/A'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="card-body">
+                                    <div className="card-detail-row" style={{ color: 'var(--text-main)', fontWeight: 500 }}>
+                                        <Star size={14} color="#f59e0b" fill="#f59e0b" className="card-detail-icon" />
+                                        <span>{b.rating || 'N/A'} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({b.review_count || 0} reviews)</span></span>
+                                    </div>
+                                    <div className="card-detail-row">
+                                        <MapPin size={14} className="card-detail-icon" />
+                                        <span title={b.full_address || b.city?.name || 'N/A'} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {b.full_address || b.city?.name || 'N/A'}
+                                        </span>
+                                    </div>
+                                    {b.phone_number && (
+                                        <div className="card-detail-row">
+                                            <Phone size={14} className="card-detail-icon" />
+                                            <span>{b.phone_number}</span>
+                                        </div>
+                                    )}
+                                    {b.website && (
+                                        <div className="card-detail-row">
+                                            <Globe size={14} className="card-detail-icon" />
+                                            <span style={{ color: 'var(--status-won)' }}>Website Active</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="card-scores">
+                                    <span className={`badge ${b.ai_score >= 70 ? 'badge-priority-c' : 'badge-priority-a'}`} style={{ flex: 1, textAlign: 'center' }}>
+                                        AI: {b.ai_score || 0}
+                                    </span>
+                                    <span className={`badge ${b.opportunity_score >= 70 ? 'badge-priority-b' : 'badge-priority-a'}`} style={{ flex: 1, textAlign: 'center' }}>
+                                        Opp: {b.opportunity_score || 0}
+                                    </span>
+                                </div>
+
+                                <div className="card-actions">
+                                    {b.google_maps_url && (
+                                        <a href={b.google_maps_url} target="_blank" rel="noreferrer" className="btn-icon" title="Open Maps">
+                                            <MapPin size={16} />
+                                        </a>
+                                    )}
+                                    {b.website && (
+                                        <a href={b.website} target="_blank" rel="noreferrer" className="btn-icon" title="Visit Website">
+                                            <Globe size={16} />
+                                        </a>
+                                    )}
+                                    <Link href={`/business/${b.id}`} className="btn-icon" title="View Details">
+                                        <ExternalLink size={16} />
+                                    </Link>
+                                    <button 
+                                        onClick={() => handleQualify(b.id)}
+                                        disabled={b.discovery_status === 'Qualified'}
+                                        className={`btn-icon ${b.discovery_status === 'Qualified' ? '' : 'primary'}`}
+                                        title={b.discovery_status === 'Qualified' ? "Already Qualified" : "Qualify to CRM"} 
+                                        style={{ cursor: b.discovery_status === 'Qualified' ? 'not-allowed' : 'pointer', opacity: b.discovery_status === 'Qualified' ? 0.5 : 1 }}
+                                    >
+                                        {b.discovery_status === 'Qualified' ? <CheckCircle2 size={16} /> : <Plus size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {businesses.length === 0 && (
+                            <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                No businesses found in this collection.
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
