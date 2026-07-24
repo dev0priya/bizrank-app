@@ -11,7 +11,10 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
     include: {
       timeline_events: { orderBy: { timestamp: 'desc' } },
       notes: { orderBy: { timestamp: 'desc' } },
-      tasks: { orderBy: { dueDate: 'asc' } }
+      tasks: { orderBy: { dueDate: 'asc' } },
+      category: true,
+      city: true,
+      state: true
     }
   }));
 
@@ -26,7 +29,7 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
           {biz.priority && <span className={`badge badge-priority-${biz.priority.charAt(biz.priority.length-1).toLowerCase()}`}>{biz.priority}</span>}
         </div>
         <div style={{ color: 'var(--text-muted)' }}>
-          {biz.category} • {biz.city}, {biz.state} • {biz.phone_number} • <a href={biz.website || '#'} target="_blank" style={{ color: 'var(--accent-primary)' }}>{biz.website || 'No Website'}</a>
+          {biz.category?.name} • {biz.city?.name}, {biz.state?.name} • {biz.phone_number} • <a href={biz.website || '#'} target="_blank" style={{ color: 'var(--accent-primary)' }}>{biz.website || 'No Website'}</a>
         </div>
       </div>
 
@@ -69,8 +72,8 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
             <h2>Website Audit</h2>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Quality Score</span>
-              <span style={{ fontSize: '24px', fontWeight: 700, color: biz.website_score && biz.website_score > 75 ? 'var(--status-won)' : 'var(--status-lost)' }}>
-                {biz.website_score !== null ? biz.website_score : 'N/A'}
+              <span style={{ fontSize: '24px', fontWeight: 700, color: biz.ai_score && biz.ai_score > 75 ? 'var(--status-won)' : 'var(--status-lost)' }}>
+                {biz.ai_score !== null ? biz.ai_score : 'N/A'}
               </span>
             </div>
             
@@ -84,12 +87,12 @@ export default async function ClientProfilePage({ params }: { params: { id: stri
                 <span>{biz.audit_https ? '✅' : '❌'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border-color)' }}>
-                <span>Clear CTA</span>
-                <span>{biz.audit_cta ? '✅' : '❌'}</span>
+                <span>Contact Visible</span>
+                <span>{biz.audit_contact_visible ? '✅' : '❌'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-                <span>Good Loading Speed</span>
-                <span>{biz.audit_loading_speed ? '✅' : '❌'}</span>
+                <span>Fast Speed</span>
+                <span>{biz.audit_speed_score && biz.audit_speed_score >= 50 ? '✅' : '❌'}</span>
               </div>
             </div>
           </div>

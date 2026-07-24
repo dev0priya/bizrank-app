@@ -7,42 +7,135 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Business {
-  id                      Int      @id @default(autoincrement())
-  business_name           String
-  category                String?
-  full_address            String?
-  area                    String?
-  city                    String?
-  state                   String?
-  country                 String?
-  phone_number            String?
-  website                 String?
-  google_maps_url         String   @unique
-  rating                  Float?
-  review_count            Int?
-  latitude                Float?
-  longitude               Float?
+// ==========================================
+// MASTER TABLES
+// ==========================================
+
+model Country {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  code   String?
+  states State[]
+
+  businesses Business[]
+}
+
+model State {
+  id        Int     @id @default(autoincrement())
+  name      String
+  countryId Int
+  country   Country @relation(fields: [countryId], references: [id])
+  cities    City[]
+
+  businesses Business[]
+}
+
+model City {
+  id      Int     @id @default(autoincrement())
+  name    String
+  stateId Int
+  state   State   @relation(fields: [stateId], references: [id])
+  areas   Area[]
+
+  businesses Business[]
+}
+
+model Area {
+  id      Int     @id @default(autoincrement())
+  name    String
+  cityId  Int
+  city    City    @relation(fields: [cityId], references: [id])
+
+  businesses Business[]
+}
+
+model BusinessCategory {
+  id    Int     @id @default(autoincrement())
+  name  String  @unique
+
+  businesses Business[]
+}
+
+// ==========================================
+// BACKGROUND JOBS
+// ==========================================
+
+model CollectionJob {
+  id          Int        @id @default(autoincrement())
+  apifyRunId  String?    
+  status      String     // 'Pending', 'Running', 'Completed', 'Failed'
+  query       String     // Summary of parameters e.g., "Plumbers, Austin, TX"
+  progress    Int        @default(0)
+  total       Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   
+  businesses  Business[] 
+
+  @@map("collection_jobs")
+}
+
+// ==========================================
+// BUSINESS LEADS (CORE)
+// ==========================================
+
+model Business {
+  id                Int      @id @default(autoincrement())
+  place_id          String?  @unique
+  business_name     String
+  
+  // Relations to Master Tables
+  category_id       Int?
+  category          BusinessCategory? @relation(fields: [category_id], references: [id])
+  
+  area_id           Int?
+  area              Area? @relation(fields: [area_id], references: [id])
+  
+  city_id           Int?
+  city              City? @relation(fields: [city_id], references: [id])
+  
+  state_id          Int?
+  state             State? @relation(fields: [state_id], references: [id])
+  
+  country_id        Int?
+  country           Country? @relation(fields: [country_id], references: [id])
+  
+  full_address      String?
+  phone_number      String?
+  website           String?
+  website_exists    Boolean  @default(false)
+  email             String?
+  google_maps_url   String?  // Keep as optional fallback
+  
+  rating            Float?
+  review_count      Int?
+  latitude          Float?
+  longitude         Float?
+
+  // Separation of Scores
+  ai_score          Int?     // Based on website quality
+  opportunity_score Int?     // Based on business size, revenue potential
+
+  // Expanded Website Audit
   audit_mobile_responsive Boolean?
   audit_https             Boolean?
-  audit_navigation        Boolean?
-  audit_ui_design         Boolean?
-  audit_typography        Boolean?
-  audit_cta               Boolean?
-  audit_contact_visibility Boolean?
-  audit_images            Boolean?
-  audit_branding          Boolean?
-  audit_loading_speed     Boolean?
-  audit_accessibility     Boolean?
-  website_score           Int?
-  website_classification  String?
-
-  // CRM specific fields
-  crm_status              String   @default("New")
+  audit_speed_score       Int?
+  audit_seo_score         Int?
+  audit_ux_score          Int?
+  audit_contact_visible   Boolean?
+  audit_booking_engine    Boolean?
+  
+  // Workflow Status
+  discovery_status        String   @default("Discovered") // e.g., Discovered, Audited, Qualified
+  crm_status              String?  // Only populated if pushed to CRM pipeline
   priority                String?  // Priority A, B, C
   revenue                 Float?
   assigned_user           String?
+  
+  collection_date   DateTime @default(now())
+  
+  job_id            Int?
+  job               CollectionJob? @relation(fields: [job_id], references: [id])
 
   // Relations
   timeline_events         TimelineEvent[]
@@ -51,6 +144,10 @@ model Business {
 
   @@map("businesses")
 }
+
+// ==========================================
+// CRM MODULES
+// ==========================================
 
 model TimelineEvent {
   id          Int      @id @default(autoincrement())

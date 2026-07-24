@@ -22,6 +22,9 @@ export default function RootLayout({
             <Link href="/" className="nav-link">
               Dashboard
             </Link>
+            <Link href="/discovery" className="nav-link">
+              Discovery Engine
+            </Link>
             <Link href="/pipeline" className="nav-link">
               Pipeline (Kanban)
             </Link>

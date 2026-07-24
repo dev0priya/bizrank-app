@@ -5,7 +5,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function ClientDirectoryPage() {
   const businesses = await safeDbQuery(() => prisma.business.findMany({
-    orderBy: { crm_status: 'asc' }
+    orderBy: { crm_status: 'asc' },
+    include: { category: true, city: true, state: true }
   })) || [];
 
   return (
@@ -37,8 +38,8 @@ export default async function ClientDirectoryPage() {
             {businesses.map(biz => (
               <tr key={biz.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={{ padding: '16px', fontWeight: 500 }}>{biz.business_name}</td>
-                <td style={{ padding: '16px', color: 'var(--text-muted)' }}>{biz.category}</td>
-                <td style={{ padding: '16px' }}>{biz.website_score !== null ? biz.website_score : 'N/A'}</td>
+                <td style={{ padding: '16px', color: 'var(--text-muted)' }}>{biz.category?.name || 'N/A'}</td>
+                <td style={{ padding: '16px' }}>{biz.ai_score !== null ? biz.ai_score : 'N/A'}</td>
                 <td style={{ padding: '16px' }}>
                   {biz.priority ? <span className={`badge ${biz.priority.includes('A') ? 'badge-priority-a' : biz.priority.includes('B') ? 'badge-priority-b' : 'badge-priority-c'}`}>{biz.priority}</span> : '-'}
                 </td>

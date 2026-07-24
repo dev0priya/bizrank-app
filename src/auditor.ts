@@ -5,17 +5,13 @@ import { ProcessedBusiness } from './processor';
 export interface AuditedBusiness extends ProcessedBusiness {
     audit_mobile_responsive: boolean;
     audit_https: boolean;
-    audit_navigation: boolean;
-    audit_ui_design: boolean;
-    audit_typography: boolean;
-    audit_cta: boolean;
-    audit_contact_visibility: boolean;
-    audit_images: boolean;
-    audit_branding: boolean;
-    audit_loading_speed: boolean;
-    audit_accessibility: boolean;
-    website_score: number;
-    website_classification: string;
+    audit_speed_score: number;
+    audit_seo_score: number;
+    audit_ux_score: number;
+    audit_contact_visible: boolean;
+    audit_booking_engine: boolean;
+    website_exists: boolean;
+    ai_score: number;
 }
 
 export class WebsiteAuditor {
@@ -37,17 +33,13 @@ export class WebsiteAuditor {
         const defaultAudit = {
             audit_mobile_responsive: false,
             audit_https: false,
-            audit_navigation: false,
-            audit_ui_design: false,
-            audit_typography: false,
-            audit_cta: false,
-            audit_contact_visibility: false,
-            audit_images: false,
-            audit_branding: false,
-            audit_loading_speed: false,
-            audit_accessibility: false,
-            website_score: 0,
-            website_classification: "No Website"
+            audit_speed_score: 0,
+            audit_seo_score: 0,
+            audit_ux_score: 0,
+            audit_contact_visible: false,
+            audit_booking_engine: false,
+            website_exists: false,
+            ai_score: 0
         };
 
         if (!business.website) {
@@ -65,26 +57,36 @@ export class WebsiteAuditor {
                 }
             });
             const duration = Date.now() - startTime;
-            const hasGoodSpeed = duration < 3000;
+            
+            // Speed Score: <1s = 100, 1-3s = 50-99, >3s = <50
+            const speedScore = duration < 1000 ? 100 : Math.max(0, 100 - Math.floor((duration - 1000) / 40));
 
             const html = response.data;
             const $ = cheerio.load(html);
 
             const isMobileResponsive = $('meta[name="viewport"]').length > 0;
+            
+            // Basic UX checks
             const hasNavigation = $('nav').length > 0 || $('[role="navigation"]').length > 0;
             const hasCss = $('link[rel="stylesheet"]').length > 0 || $('style').length > 0;
-            const hasSections = $('header, main, footer, section').length >= 2;
-            const hasGoodUIDesign = hasCss && hasSections;
-            const hasCustomTypography = $('link[href*="fonts.googleapis.com"], link[href*="use.typekit.net"]').length > 0 || 
-                                        $('style').text().includes('@font-face');
+            const uxScore = (hasNavigation ? 50 : 0) + (hasCss ? 50 : 0);
+
+            // Basic SEO checks
+            const hasTitle = $('title').length > 0 && $('title').text().length > 0;
+            const hasMetaDesc = $('meta[name="description"]').length > 0;
+            const hasH1 = $('h1').length > 0;
+            let seoScore = 0;
+            if (hasTitle) seoScore += 40;
+            if (hasMetaDesc) seoScore += 40;
+            if (hasH1) seoScore += 20;
 
             const ctaKeywords = ['book', 'buy', 'shop', 'order', 'sign up', 'contact us', 'get started', 'learn more'];
-            let hasCTA = false;
+            let hasBooking = false;
             $('a, button').each((_, el) => {
-                if (hasCTA) return;
+                if (hasBooking) return;
                 const text = $(el).text().toLowerCase();
                 if (ctaKeywords.some(keyword => text.includes(keyword))) {
-                    hasCTA = true;
+                    hasBooking = true;
                 }
             });
 
@@ -98,53 +100,26 @@ export class WebsiteAuditor {
                 });
             }
 
-            const hasImages = $('img').length > 0;
-            const hasFavicon = $('link[rel="icon"], link[rel="shortcut icon"]').length > 0;
-            const hasLogo = $('img[src*="logo"], img[class*="logo"], img[id*="logo"], img[alt*="logo"]').length > 0;
-            const hasBranding = hasFavicon || hasLogo;
-
-            const totalImages = $('img').length;
-            const imagesWithAlt = $('img[alt]').length;
-            const isAccessible = totalImages === 0 ? true : (imagesWithAlt / totalImages) >= 0.8;
-
-            const flags: Record<string, boolean> = {
-                audit_mobile_responsive: isMobileResponsive,
-                audit_https: isHttps,
-                audit_navigation: hasNavigation,
-                audit_ui_design: hasGoodUIDesign,
-                audit_typography: hasCustomTypography,
-                audit_cta: hasCTA,
-                audit_contact_visibility: hasContact,
-                audit_images: hasImages,
-                audit_branding: hasBranding,
-                audit_loading_speed: hasGoodSpeed,
-                audit_accessibility: isAccessible,
-            };
-
-            const criteriaCount = Object.keys(flags).length;
-            let passedCount = 0;
-            for (const key in flags) {
-                if (flags[key]) passedCount++;
-            }
-            
-            const score = Math.round((passedCount / criteriaCount) * 100);
-
-            let classification = "Needs Improvement";
-            if (score >= 80) classification = "Excellent";
-            else if (score >= 50) classification = "Good";
+            // AI Score based on overall audit
+            const aiScore = Math.round((speedScore + uxScore + seoScore + (isMobileResponsive ? 100 : 0) + (hasContact ? 100 : 0) + (hasBooking ? 100 : 0)) / 6);
 
             return {
                 ...business,
-                ...flags,
-                website_score: score,
-                website_classification: classification
-            } as AuditedBusiness;
+                audit_mobile_responsive: isMobileResponsive,
+                audit_https: isHttps,
+                audit_speed_score: speedScore,
+                audit_seo_score: seoScore,
+                audit_ux_score: uxScore,
+                audit_contact_visible: hasContact,
+                audit_booking_engine: hasBooking,
+                website_exists: true,
+                ai_score: aiScore
+            };
 
         } catch (error) {
             return {
                 ...business,
                 ...defaultAudit,
-                website_classification: "No Website"
             };
         }
     }

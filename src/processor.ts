@@ -1,4 +1,5 @@
 export interface ProcessedBusiness {
+    place_id: string | null;
     business_name: string;
     category: string | null;
     full_address: string | null;
@@ -8,6 +9,7 @@ export interface ProcessedBusiness {
     country: string | null;
     phone_number: string | null;
     website: string | null;
+    email: string | null;
     google_maps_url: string;
     rating: number | null;
     review_count: number | null;
@@ -25,6 +27,7 @@ export class DataProcessor {
             const lng = item.location && typeof item.location.lng === 'number' ? item.location.lng : null;
             
             const record: ProcessedBusiness = {
+                place_id: item.placeId || null,
                 business_name: item.title || "Unknown",
                 category: item.categoryName || null,
                 full_address: item.address || null,
@@ -34,6 +37,7 @@ export class DataProcessor {
                 country: item.countryCode || null,
                 phone_number: item.phoneUnformatted || null,
                 website: item.website || null,
+                email: Array.isArray(item.emails) && item.emails.length > 0 ? item.emails[0] : null,
                 google_maps_url: item.url || "",
                 rating: typeof item.totalScore === 'number' ? item.totalScore : null,
                 review_count: typeof item.reviewsCount === 'number' ? item.reviewsCount : null,
@@ -41,18 +45,20 @@ export class DataProcessor {
                 longitude: lng
             };
 
-            if (record.google_maps_url) {
+            // Only add if it has a place_id or google_maps_url
+            if (record.place_id || record.google_maps_url) {
                 processedRecords.push(record);
             }
         }
         
         const initialCount = processedRecords.length;
         
-        // Deduplicate based on google_maps_url
+        // Deduplicate based on place_id primarily, fallback to google_maps_url
         const uniqueRecordsMap = new Map<string, ProcessedBusiness>();
         for (const record of processedRecords) {
-            if (!uniqueRecordsMap.has(record.google_maps_url)) {
-                uniqueRecordsMap.set(record.google_maps_url, record);
+            const key = record.place_id || record.google_maps_url;
+            if (key && !uniqueRecordsMap.has(key)) {
+                uniqueRecordsMap.set(key, record);
             }
         }
         

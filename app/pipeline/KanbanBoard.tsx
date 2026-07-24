@@ -24,8 +24,8 @@ function DraggableCard({ biz }: { biz: any }) {
     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className="kanban-card">
       <div className="kanban-card-title">{biz.business_name}</div>
       <div className="kanban-card-meta">
-        <span>{biz.category || 'N/A'}</span>
-        {biz.website_score !== null && <span>Score: {biz.website_score}</span>}
+        <span>{biz.category?.name || 'N/A'}</span>
+        {biz.ai_score !== null && <span>Score: {biz.ai_score}</span>}
       </div>
     </div>
   );

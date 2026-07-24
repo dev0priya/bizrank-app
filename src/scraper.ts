@@ -20,7 +20,7 @@ export class GoogleMapsScraper {
         this.client = new ApifyClient({ token: Config.APIFY_API_TOKEN });
     }
 
-    async searchBusinesses({ country, state, city, area, category, maxResults = 20 }: SearchParams) {
+    async startSearch({ country, state, city, area, category, maxResults = 20 }: SearchParams) {
         const searchParts: string[] = [];
         if (category) searchParts.push(category);
         if (area) searchParts.push(area);
@@ -33,7 +33,7 @@ export class GoogleMapsScraper {
             throw new Error("At least one search parameter must be provided.");
         }
 
-        console.log(`Starting Apify Scraper for query: '${searchQuery}' (max ${maxResults} results)`);
+        console.log(`Starting Async Apify Scraper for query: '${searchQuery}' (max ${maxResults} results)`);
 
         const runInput = {
             searchStringsArray: [searchQuery],
@@ -47,13 +47,18 @@ export class GoogleMapsScraper {
             scrapeResponseFromOwnerText: false,
         };
 
-        const run = await this.client.actor(Config.APIFY_ACTOR_ID).call(runInput);
-        console.log(`Scraper finished. Run ID: ${run.id}`);
+        const run = await this.client.actor(Config.APIFY_ACTOR_ID).start(runInput);
+        console.log(`Scraper started. Run ID: ${run.id}`);
         
-        console.log("Fetching results...");
-        const { items } = await this.client.dataset(run.defaultDatasetId).listItems();
-        console.log(`Fetched ${items.length} raw items from Apify.`);
-        
+        return run;
+    }
+
+    async checkRunStatus(runId: string) {
+        return await this.client.run(runId).get();
+    }
+
+    async getDatasetItems(datasetId: string) {
+        const { items } = await this.client.dataset(datasetId).listItems();
         return items;
     }
 }
