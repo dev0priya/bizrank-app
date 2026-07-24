@@ -15,6 +15,8 @@ export async function GET(request: Request) {
         const minOppScore = parseInt(searchParams.get('minOppScore') || '0');
         const categoryId = searchParams.get('categoryId');
         const jobId = searchParams.get('jobId');
+        const discoveryStatus = searchParams.get('discoveryStatus');
+        const crmStatus = searchParams.get('crmStatus');
 
         const where: any = {};
         
@@ -25,6 +27,8 @@ export async function GET(request: Request) {
         if (minOppScore > 0) where.opportunity_score = { gte: minOppScore };
         if (categoryId) where.category_id = parseInt(categoryId);
         if (jobId) where.job_id = parseInt(jobId);
+        if (discoveryStatus) where.discovery_status = discoveryStatus;
+        if (crmStatus) where.crm_status = crmStatus;
 
         const businesses = await prisma.business.findMany({
             where,

@@ -54,6 +54,22 @@ export default function DatabaseClient({ categories, cities, states }: { categor
         }
     };
 
+    const handleQualify = async (id: number) => {
+        try {
+            const res = await fetch(`/api/businesses/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ discovery_status: 'Qualified' })
+            });
+            if (res.ok) {
+                // Update local state to reflect change visually
+                setBusinesses(businesses.map(b => b.id === id ? { ...b, discovery_status: 'Qualified' } : b));
+            }
+        } catch (error) {
+            console.error('Failed to qualify business', error);
+        }
+    };
+
     // Auto-fetch on filter or page change
     useEffect(() => {
         fetchBusinesses();
@@ -213,7 +229,12 @@ export default function DatabaseClient({ categories, cities, states }: { categor
                                             <Link href={`/business/${b.id}`} title="View Details" style={{ color: 'var(--text-muted)' }}>
                                                 <ExternalLink size={16} />
                                             </Link>
-                                            <button title="Qualify to CRM" style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer' }}>
+                                            <button 
+                                                onClick={() => handleQualify(b.id)}
+                                                disabled={b.discovery_status === 'Qualified'}
+                                                title={b.discovery_status === 'Qualified' ? "Already Qualified" : "Qualify to CRM"} 
+                                                style={{ background: 'none', border: 'none', color: b.discovery_status === 'Qualified' ? 'var(--text-muted)' : 'var(--accent-primary)', cursor: b.discovery_status === 'Qualified' ? 'not-allowed' : 'pointer' }}
+                                            >
                                                 <Plus size={16} />
                                             </button>
                                         </div>
