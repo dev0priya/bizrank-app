@@ -42,7 +42,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             console.log(`Apify Run ${runStatus.id} succeeded. Processing data...`);
             
             const rawItems = await scraper.getDatasetItems(runStatus.defaultDatasetId);
-            const processed = DataProcessor.processAndDeduplicate(rawItems);
+            const searchCategory = job.query.split(',')[0]?.trim(); // Best effort from query label
+            const processed = DataProcessor.processAndDeduplicate(rawItems, searchCategory);
             const audited = await WebsiteAuditor.auditBusinesses(processed);
 
             // Fetch Master Tables to resolve IDs (simple cache)
@@ -64,6 +65,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                     place_id: biz.place_id,
                     business_name: biz.business_name,
                     category_id: getCatId(biz.category),
+                    google_category: biz.google_category || biz.category, // Exact Google Category
+                    owner_name: biz.owner_name,
+                    business_status: biz.business_status,
                     city_id: getCityId(biz.city),
                     state_id: getStateId(biz.state),
                     country_id: getCountryId(biz.country),

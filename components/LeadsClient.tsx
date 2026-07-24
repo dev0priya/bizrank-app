@@ -68,7 +68,7 @@ export default function LeadsClient({ initialLeads }: { initialLeads: any[] }) {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', textAlign: 'left' }}>
-                                <th style={{ padding: '12px' }}>Business</th>
+                                <th style={{ padding: '12px' }}>Business Details</th>
                                 <th style={{ padding: '12px' }}>Scores (AI / Opp)</th>
                                 <th style={{ padding: '12px' }}>Priority</th>
                                 <th style={{ padding: '12px' }}>Est. Revenue ($)</th>
@@ -80,11 +80,19 @@ export default function LeadsClient({ initialLeads }: { initialLeads: any[] }) {
                                 <tr key={lead.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                     <td style={{ padding: '16px 12px' }}>
                                         <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{lead.business_name}</div>
-                                        <div style={{ color: 'var(--text-muted)', display: 'flex', gap: '8px' }}>
-                                            <span>{lead.category?.name || 'No Category'}</span>
-                                            <span>•</span>
-                                            <span>{lead.city?.name || 'No City'}</span>
-                                            {lead.website && <a href={lead.website} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', marginLeft: '4px' }}><Globe size={12} /></a>}
+                                        <div style={{ color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span>{lead.google_category || lead.category?.name || '-'}</span>
+                                                <span>•</span>
+                                                <span>{lead.city?.name || 'No City'}</span>
+                                                {lead.website && <a href={lead.website} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', marginLeft: '4px' }}><Globe size={12} /></a>}
+                                                {lead.google_maps_url && <a href={lead.google_maps_url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', marginLeft: '4px', textDecoration: 'none', fontSize: '12px' }}>Map</a>}
+                                            </div>
+                                            {lead.full_address && <div style={{ fontSize: '12px' }}>{lead.full_address}</div>}
+                                            <div style={{ fontSize: '12px' }}>
+                                                <Star size={10} color="#f59e0b" fill="#f59e0b" style={{ marginRight: '4px', display: 'inline' }} />
+                                                {lead.rating || '-'} ({lead.review_count || 0}) • {lead.owner_name || 'Owner N/A'}
+                                            </div>
                                         </div>
                                     </td>
                                     

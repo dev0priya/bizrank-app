@@ -176,12 +176,13 @@ export default function DatabaseClient({ categories, cities, states }: { categor
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', textAlign: 'left' }}>
-                                <th style={{ padding: '12px' }}>Business</th>
-                                <th style={{ padding: '12px' }}>Category</th>
-                                <th style={{ padding: '12px' }}>Location</th>
-                                <th style={{ padding: '12px' }}>Scores (AI / Opp)</th>
-                                <th style={{ padding: '12px' }}>Status (Disc / CRM)</th>
-                                <th style={{ padding: '12px' }}>Source Job</th>
+                                <th style={{ padding: '12px' }}>Business Details</th>
+                                <th style={{ padding: '12px' }}>Google Category</th>
+                                <th style={{ padding: '12px' }}>Complete Address</th>
+                                <th style={{ padding: '12px' }}>Contact & Links</th>
+                                <th style={{ padding: '12px' }}>Google Rating</th>
+                                <th style={{ padding: '12px' }}>Owner Name</th>
+                                <th style={{ padding: '12px' }}>Business Status</th>
                                 <th style={{ padding: '12px' }}>Actions</th>
                             </tr>
                         </thead>
@@ -190,39 +191,29 @@ export default function DatabaseClient({ categories, cities, states }: { categor
                                 <tr key={b.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                     <td style={{ padding: '12px' }}>
                                         <div style={{ fontWeight: 600 }}>{b.business_name}</div>
-                                        <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                                            {b.website && <a href={b.website} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', textDecoration: 'none' }}><Globe size={12}/></a>}
-                                            {b.phone_number && <span style={{ color: 'var(--text-muted)' }} title={b.phone_number}><Phone size={12}/></span>}
-                                        </div>
                                     </td>
-                                    <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{b.category?.name || '-'}</td>
-                                    <td style={{ padding: '12px', color: 'var(--text-muted)' }}>
-                                        {b.city?.name || '-'}, {b.state?.name || '-'}
-                                    </td>
-                                    <td style={{ padding: '12px' }}>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <span className={`badge ${b.ai_score >= 70 ? 'badge-priority-c' : b.ai_score >= 40 ? 'badge-priority-b' : 'badge-priority-a'}`} title="AI Score">
-                                                {b.ai_score}
-                                            </span>
-                                            <span className={`badge ${b.opportunity_score >= 70 ? 'badge-priority-c' : b.opportunity_score >= 40 ? 'badge-priority-b' : 'badge-priority-a'}`} title="Opportunity Score">
-                                                {b.opportunity_score}
-                                            </span>
-                                        </div>
+                                    <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{b.google_category || b.category?.name || '-'}</td>
+                                    <td style={{ padding: '12px', color: 'var(--text-muted)', maxWidth: '200px' }}>
+                                        {b.full_address || '-'}
                                     </td>
                                     <td style={{ padding: '12px' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <span style={{ fontSize: '12px', color: 'var(--text-main)' }}>{b.discovery_status}</span>
-                                            <span style={{ fontSize: '11px', color: b.crm_status ? 'var(--status-won)' : 'var(--text-muted)' }}>
-                                                {b.crm_status || 'Unqualified'}
-                                            </span>
+                                            {b.phone_number ? <span style={{ fontSize: '12px' }}>{b.phone_number}</span> : <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No Phone</span>}
+                                            {b.website && <a href={b.website} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--accent-primary)', textDecoration: 'none' }}>Website</a>}
+                                            {b.google_maps_url && <a href={b.google_maps_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--accent-primary)', textDecoration: 'none' }}>View Maps</a>}
                                         </div>
                                     </td>
                                     <td style={{ padding: '12px' }}>
-                                        {b.job_id ? (
-                                            <Link href={`/jobs/${b.job_id}`} style={{ color: 'var(--accent-primary)', textDecoration: 'none' }}>
-                                                #{b.job_id}
-                                            </Link>
-                                        ) : '-'}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <span style={{ fontWeight: 600, color: 'var(--status-won)' }}>{b.rating !== null ? b.rating : '-'}</span>
+                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>({b.review_count || 0})</span>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '12px', color: 'var(--text-muted)' }}>
+                                        {b.owner_name || 'Not Available'}
+                                    </td>
+                                    <td style={{ padding: '12px', color: 'var(--text-muted)' }}>
+                                        {b.business_status || '-'}
                                     </td>
                                     <td style={{ padding: '12px' }}>
                                         <div style={{ display: 'flex', gap: '12px' }}>

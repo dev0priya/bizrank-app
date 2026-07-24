@@ -112,6 +112,11 @@ model Business {
   latitude          Float?
   longitude         Float?
 
+  // Exact Google Maps Data Fields
+  google_category   String?
+  owner_name        String?
+  business_status   String?
+
   // Separation of Scores
   ai_score          Int?     // Based on website quality
   opportunity_score Int?     // Based on business size, revenue potential

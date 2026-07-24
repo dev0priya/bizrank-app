@@ -85,50 +85,47 @@ export default function JobViewerClient({ job, businesses: initialBusinesses }: 
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', textAlign: 'left' }}>
-                                <th style={{ padding: '12px' }}>Business</th>
-                                <th style={{ padding: '12px' }}>Category</th>
-                                <th style={{ padding: '12px' }}>Rating</th>
-                                <th style={{ padding: '12px' }}>Contact Info</th>
-                                <th style={{ padding: '12px' }}>Location</th>
-                                <th style={{ padding: '12px' }}>Scores</th>
+                                <th style={{ padding: '12px' }}>Business Details</th>
+                                <th style={{ padding: '12px' }}>Google Category</th>
+                                <th style={{ padding: '12px' }}>Complete Address</th>
+                                <th style={{ padding: '12px' }}>Contact & Links</th>
+                                <th style={{ padding: '12px' }}>Google Rating</th>
+                                <th style={{ padding: '12px' }}>Owner Name</th>
+                                <th style={{ padding: '12px' }}>Business Status</th>
                                 <th style={{ padding: '12px' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {businesses.map(b => (
                                 <tr key={b.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <td style={{ padding: '12px', fontWeight: 600 }}>{b.business_name}</td>
-                                    <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{b.category?.name || 'N/A'}</td>
                                     <td style={{ padding: '12px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <Star size={14} color="#f59e0b" fill="#f59e0b" />
-                                            <span>{b.rating || 'N/A'} ({b.review_count || 0})</span>
-                                        </div>
+                                        <div style={{ fontWeight: 600 }}>{b.business_name}</div>
+                                    </td>
+                                    <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{b.google_category || b.category?.name || '-'}</td>
+                                    <td style={{ padding: '12px', color: 'var(--text-muted)', maxWidth: '200px' }}>
+                                        {b.full_address || '-'}
                                     </td>
                                     <td style={{ padding: '12px' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            {b.phone_number ? <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Phone size={12}/> {b.phone_number}</span> : null}
-                                            {b.website ? <a href={b.website} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-primary)', textDecoration: 'none' }}><Globe size={12}/> Website</a> : null}
-                                            {b.email ? <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Mail size={12}/> {b.email}</span> : null}
-                                            {!b.phone_number && !b.website && !b.email && <span style={{ color: 'var(--text-muted)' }}>No contact info</span>}
+                                            {b.phone_number ? <span style={{ fontSize: '12px' }}>{b.phone_number}</span> : <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No Phone</span>}
+                                            {b.website && <a href={b.website} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--accent-primary)', textDecoration: 'none' }}>Website</a>}
+                                            {b.google_maps_url && <a href={b.google_maps_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--accent-primary)', textDecoration: 'none' }}>View Maps</a>}
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <span style={{ fontWeight: 600, color: 'var(--status-won)' }}>{b.rating !== null ? b.rating : '-'}</span>
+                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>({b.review_count || 0})</span>
                                         </div>
                                     </td>
                                     <td style={{ padding: '12px', color: 'var(--text-muted)' }}>
-                                        {b.area ? `${b.area.name}, ` : ''}{b.city?.name || 'N/A'}
+                                        {b.owner_name || 'Not Available'}
+                                    </td>
+                                    <td style={{ padding: '12px', color: 'var(--text-muted)' }}>
+                                        {b.business_status || '-'}
                                     </td>
                                     <td style={{ padding: '12px' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <span className={`badge ${b.ai_score >= 70 ? 'badge-priority-c' : 'badge-priority-a'}`}>AI: {b.ai_score}</span>
-                                            <span className={`badge ${b.opportunity_score >= 70 ? 'badge-priority-b' : 'badge-priority-a'}`}>Opp: {b.opportunity_score}</span>
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '12px' }}>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            {b.google_maps_url && (
-                                                <a href={b.google_maps_url} target="_blank" rel="noreferrer" title="Open Maps" style={{ color: 'var(--text-muted)' }}>
-                                                    <MapPin size={16} />
-                                                </a>
-                                            )}
+                                        <div style={{ display: 'flex', gap: '12px' }}>
                                             <Link href={`/business/${b.id}`} title="View Details" style={{ color: 'var(--text-muted)' }}>
                                                 <ExternalLink size={16} />
                                             </Link>
