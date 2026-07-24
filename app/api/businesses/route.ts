@@ -11,6 +11,8 @@ export async function GET(request: Request) {
         const hasWebsite = searchParams.get('hasWebsite');
         const hasPhone = searchParams.get('hasPhone');
         const minRating = parseFloat(searchParams.get('minRating') || '0');
+        const minAiScore = parseInt(searchParams.get('minAiScore') || '0');
+        const minOppScore = parseInt(searchParams.get('minOppScore') || '0');
         const categoryId = searchParams.get('categoryId');
         const jobId = searchParams.get('jobId');
 
@@ -19,6 +21,8 @@ export async function GET(request: Request) {
         if (hasWebsite === 'true') where.website_exists = true;
         if (hasPhone === 'true') where.phone_number = { not: null };
         if (minRating > 0) where.rating = { gte: minRating };
+        if (minAiScore > 0) where.ai_score = { gte: minAiScore };
+        if (minOppScore > 0) where.opportunity_score = { gte: minOppScore };
         if (categoryId) where.category_id = parseInt(categoryId);
         if (jobId) where.job_id = parseInt(jobId);
 
@@ -31,6 +35,7 @@ export async function GET(request: Request) {
                 city: true,
                 state: true,
                 country: true,
+                job: true,
             },
             orderBy: { collection_date: 'desc' }
         });
