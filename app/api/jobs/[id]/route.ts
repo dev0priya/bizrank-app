@@ -129,3 +129,26 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+    const params = await context.params;
+    const jobId = parseInt(params.id);
+    if (isNaN(jobId)) {
+        return NextResponse.json({ error: 'Invalid Job ID' }, { status: 400 });
+    }
+
+    try {
+        // Cascade delete is handled by Prisma or DB schema if configured, 
+        // but wait, schema.prisma doesn't have onDelete: Cascade for businesses -> jobs
+        // Let's delete businesses first
+        await prisma.business.deleteMany({ where: { job_id: jobId } });
+        
+        // Then delete the job
+        await prisma.collectionJob.delete({ where: { id: jobId } });
+        
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error('Failed to delete job:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
