@@ -446,25 +446,12 @@ export default function BusinessDiscoveryPage() {
                                             <span>{b.phone_number}</span>
                                         </div>
                                     )}
-                                    {b.website && (
-                                        <div className="card-detail-row" style={{ marginBottom: '12px' }}>
-                                            <Globe size={16} className="card-detail-icon" />
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                <span style={{ color: 'var(--status-won)', fontWeight: 500 }}>Website Active</span>
-                                                <a href={b.website} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', textDecoration: 'none', wordBreak: 'break-all' }}>
-                                                    {b.website}
-                                                </a>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {b.google_maps_url && (
-                                        <div className="card-detail-row">
-                                            <MapPin size={16} className="card-detail-icon" />
-                                            <a href={b.google_maps_url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', textDecoration: 'none', wordBreak: 'break-all' }}>
-                                                {b.google_maps_url}
-                                            </a>
-                                        </div>
-                                    )}
+                                    <div className="card-detail-row" style={{ marginBottom: '12px' }}>
+                                        <Globe size={16} className="card-detail-icon" />
+                                        <span style={{ color: b.website ? 'var(--status-won)' : 'var(--text-muted)', fontWeight: 500 }}>
+                                            {b.website ? 'Website Available' : 'Website Missing'}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* FOOTER */}
