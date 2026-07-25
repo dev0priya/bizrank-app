@@ -6,6 +6,21 @@ import {
   Phone, Globe, Mail, Star, BarChart3, Clock, Plus, ExternalLink, Target 
 } from 'lucide-react';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SkeletonCard } from '../../components/Skeleton';
+
+const containerVariants: any = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const cardVariants: any = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+};
 
 export default function BusinessDiscoveryPage() {
     const [masterData, setMasterData] = useState<any>({ countries: [], states: [], cities: [], areas: [], categories: [] });
@@ -35,7 +50,6 @@ export default function BusinessDiscoveryPage() {
             .catch(console.error);
     }, []);
 
-    // Filter dependent dropdowns
     const availableStates = masterData.states.filter((s: any) => !selectedCountry || s.countryId === parseInt(selectedCountry));
     const availableCities = masterData.cities.filter((c: any) => !selectedState || c.stateId === parseInt(selectedState));
     const availableAreas = masterData.areas.filter((a: any) => !selectedCity || a.cityId === parseInt(selectedCity));
@@ -67,11 +81,10 @@ export default function BusinessDiscoveryPage() {
             setProgress(0);
             setStartTime(Date.now());
             setElapsedTime(0);
-            setBusinesses([]); // Clear previous results
+            setBusinesses([]); 
         }
     };
 
-    // Elapsed Time Timer
     useEffect(() => {
         if (jobStatus === 'Running' && startTime) {
             const timer = setInterval(() => {
@@ -81,7 +94,6 @@ export default function BusinessDiscoveryPage() {
         }
     }, [jobStatus, startTime]);
 
-    // Polling Loop for Job Status
     useEffect(() => {
         if (!jobId || jobStatus === 'Completed' || jobStatus === 'Failed') return;
 
@@ -103,8 +115,6 @@ export default function BusinessDiscoveryPage() {
 
     const fetchResults = async () => {
         if (!jobId) return;
-        
-        // Mode 1: Fetch strictly isolated dataset
         const res = await fetch(`/api/businesses?jobId=${jobId}&limit=100`);
         const data = await res.json();
         if (data.data) {
@@ -128,7 +138,12 @@ export default function BusinessDiscoveryPage() {
     };
 
     return (
-        <div style={{ paddingBottom: '40px' }}>
+        <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            style={{ paddingBottom: '40px' }}
+        >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
                 <Search size={28} className="text-gradient" />
                 <h1 className="text-gradient" style={{ margin: 0 }}>Business Discovery</h1>
@@ -139,7 +154,7 @@ export default function BusinessDiscoveryPage() {
             </p>
 
             {/* TOP FUNNEL: Search Execution Form */}
-            <div className="glass-panel" style={{ marginBottom: '32px' }}>
+            <div className="glass-panel hover-lift" style={{ marginBottom: '32px' }}>
                 <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <TargetIcon size={18} /> Define Discovery Target
                 </h3>
@@ -192,7 +207,7 @@ export default function BusinessDiscoveryPage() {
 
                     <div>
                         <button 
-                            className="btn-primary"
+                            className={`ripple hover-lift ${jobStatus !== 'Running' ? 'btn-primary' : ''}`}
                             onClick={handleStartSearch} 
                             disabled={jobStatus === 'Running'}
                             style={{ 
@@ -218,44 +233,62 @@ export default function BusinessDiscoveryPage() {
             </div>
 
             {/* PROGRESS CARD */}
-            {jobId && (
-                <div className="glass-panel" style={{ marginBottom: '32px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                            Job #{jobId} Status
-                            {jobStatus === 'Running' && <span className="badge badge-priority-b">Running</span>}
-                            {jobStatus === 'Completed' && <span className="badge badge-priority-c">Completed</span>}
-                            {jobStatus === 'Failed' && <span className="badge badge-priority-a">Failed</span>}
-                        </h3>
-                        <div style={{ display: 'flex', gap: '24px', color: 'var(--text-muted)', fontSize: '14px' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Clock size={16} /> {Math.floor(elapsedTime / 60)}m {elapsedTime % 60}s
-                            </span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <MapPin size={16} /> Businesses Found: {jobStatus === 'Completed' ? businesses.length : '-'}
-                            </span>
+            <AnimatePresence>
+                {jobId && (
+                    <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="glass-panel hover-lift" style={{ marginBottom: '32px' }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                                Job #{jobId} Status
+                                {jobStatus === 'Running' && <span className="badge badge-priority-b">Running</span>}
+                                {jobStatus === 'Completed' && <span className="badge badge-priority-c">Completed</span>}
+                                {jobStatus === 'Failed' && <span className="badge badge-priority-a">Failed</span>}
+                            </h3>
+                            <div style={{ display: 'flex', gap: '24px', color: 'var(--text-muted)', fontSize: '14px' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Clock size={16} /> {Math.floor(elapsedTime / 60)}m {elapsedTime % 60}s
+                                </span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <MapPin size={16} /> Businesses Found: {jobStatus === 'Completed' ? businesses.length : '-'}
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ 
-                            width: `${progress}%`, 
-                            height: '100%', 
-                            background: jobStatus === 'Failed' ? 'var(--status-lost)' : 'var(--status-won)', 
-                            transition: 'width 0.5s ease' 
-                        }} />
+                        
+                        <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ 
+                                width: `${progress}%`, 
+                                height: '100%', 
+                                background: jobStatus === 'Failed' ? 'var(--status-lost)' : 'var(--status-won)', 
+                                transition: 'width 0.5s ease' 
+                            }} />
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ISOLATED CURRENT RESULTS */}
+            {jobStatus === 'Running' && (
+                <div className="glass-panel">
+                    <h3 style={{ marginBottom: '20px' }}>Discovering Businesses...</h3>
+                    <div className="card-grid">
+                        <SkeletonCard />
+                        <SkeletonCard />
+                        <SkeletonCard />
                     </div>
                 </div>
             )}
 
-            {/* ISOLATED CURRENT RESULTS */}
             {jobStatus === 'Completed' && (
                 <div className="glass-panel">
                     <h3 style={{ marginBottom: '20px' }}>Current Search Results</h3>
                     
-                    <div className="card-grid">
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="card-grid">
                         {businesses.map(b => (
-                            <div key={b.id} className="card">
+                            <motion.div variants={cardVariants} key={b.id} className="card hover-lift">
                                 {/* HEADER */}
                                 <div className="card-header" style={{ flexDirection: 'column', gap: '12px', marginBottom: 0 }}>
                                     <div>
@@ -318,36 +351,36 @@ export default function BusinessDiscoveryPage() {
                                 {/* FOOTER */}
                                 <div className="card-actions" style={{ flexWrap: 'wrap' }}>
                                     {b.google_maps_url && (
-                                        <a href={b.google_maps_url} target="_blank" rel="noreferrer" className="btn-icon">
+                                        <a href={b.google_maps_url} target="_blank" rel="noreferrer" className="btn-icon ripple">
                                             <MapPin size={16} /> Open Maps
                                         </a>
                                     )}
                                     {b.website && (
-                                        <a href={b.website} target="_blank" rel="noreferrer" className="btn-icon">
+                                        <a href={b.website} target="_blank" rel="noreferrer" className="btn-icon ripple">
                                             <Globe size={16} /> Visit Website
                                         </a>
                                     )}
-                                    <Link href={`/business/${b.id}`} className="btn-icon">
+                                    <Link href={`/business/${b.id}`} className="btn-icon ripple">
                                         <ExternalLink size={16} /> View Details
                                     </Link>
                                     <button 
                                         onClick={() => handleQualify(b.id)}
                                         disabled={b.discovery_status === 'Qualified'}
-                                        className={`btn-icon ${b.discovery_status === 'Qualified' ? '' : 'primary'}`}
+                                        className={`btn-icon ripple ${b.discovery_status === 'Qualified' ? '' : 'primary'}`}
                                         style={{ cursor: b.discovery_status === 'Qualified' ? 'not-allowed' : 'pointer', opacity: b.discovery_status === 'Qualified' ? 0.5 : 1 }}
                                     >
                                         {b.discovery_status === 'Qualified' ? <CheckCircle2 size={16} /> : <Plus size={16} />} 
                                         {b.discovery_status === 'Qualified' ? "Already Qualified" : "Add to CRM"}
                                     </button>
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                         {businesses.length === 0 && (
                             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                 No businesses found in this collection.
                             </div>
                         )}
-                    </div>
+                    </motion.div>
                 </div>
             )}
             
@@ -360,6 +393,7 @@ export default function BusinessDiscoveryPage() {
                     border: 1px solid var(--border-color);
                     border-radius: 8px;
                     outline: none;
+                    transition: border-color 0.2s ease;
                 }
                 .select-input:focus {
                     border-color: var(--accent-primary);
@@ -372,7 +406,7 @@ export default function BusinessDiscoveryPage() {
                     animation: spin 1s linear infinite;
                 }
             `}</style>
-        </div>
+        </motion.div>
     );
 }
 
