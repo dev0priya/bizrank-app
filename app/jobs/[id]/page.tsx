@@ -1,5 +1,5 @@
-import { prisma } from '../../../src/lib/prisma';
-import JobViewerClient from '../../../components/JobViewerClient';
+import { prisma } from '../../../lib/prisma';
+import JobViewerClient from './JobViewerClient';
 
 export const dynamic = 'force-dynamic';
 

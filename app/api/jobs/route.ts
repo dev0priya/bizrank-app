@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../src/lib/prisma';
-import { GoogleMapsScraper } from '../../../src/scraper';
+import { prisma } from '../../../lib/prisma';
+import { GoogleMapsScraper } from '../../../services/scraper';
 
 export async function POST(request: Request) {
     try {

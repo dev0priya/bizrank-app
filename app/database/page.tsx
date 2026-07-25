@@ -1,5 +1,5 @@
-import { prisma } from '../../src/lib/prisma';
-import DatabaseClient from '../../components/DatabaseClient';
+import { prisma } from '../../lib/prisma';
+import DatabaseClient from './DatabaseClient';
 
 export const dynamic = 'force-dynamic';
 

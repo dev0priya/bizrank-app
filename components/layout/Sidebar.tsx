@@ -17,7 +17,7 @@ import {
   ChevronRight,
   X
 } from 'lucide-react';
-import { useMobileMenu } from '../context/MobileMenuContext';
+import { useMobileMenu } from '../../context/MobileMenuContext';
 
 const groups = [
   {

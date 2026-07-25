@@ -1,5 +1,5 @@
-import { prisma } from '../../src/lib/prisma';
-import AnalyticsClient from '../../components/AnalyticsClient';
+import { prisma } from '../../lib/prisma';
+import AnalyticsClient from './AnalyticsClient';
 
 export const dynamic = 'force-dynamic';
 

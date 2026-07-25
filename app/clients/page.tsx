@@ -1,4 +1,4 @@
-import { prisma, safeDbQuery } from '../../src/lib/prisma';
+import { prisma, safeDbQuery } from '../../lib/prisma';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';

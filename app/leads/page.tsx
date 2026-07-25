@@ -1,5 +1,5 @@
-import { prisma } from '../../src/lib/prisma';
-import LeadsClient from '../../components/LeadsClient';
+import { prisma } from '../../lib/prisma';
+import LeadsClient from './LeadsClient';
 
 export const dynamic = 'force-dynamic';
 

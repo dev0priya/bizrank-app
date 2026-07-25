@@ -1,5 +1,5 @@
-import { prisma } from '../../src/lib/prisma';
-import JobsClient from '../../components/JobsClient';
+import { prisma } from '../../lib/prisma';
+import JobsClient from './JobsClient';
 
 export const dynamic = 'force-dynamic';
 

@@ -1,5 +1,5 @@
 import { ApifyClient } from 'apify-client';
-import { Config } from './config';
+import { Config } from '../config/config';
 
 export interface SearchParams {
     country?: string;

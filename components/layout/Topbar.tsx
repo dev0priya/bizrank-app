@@ -1,9 +1,9 @@
 'use client';
 
 import { Bell, Menu, Moon, Sun } from 'lucide-react';
-import { useMobileMenu } from '../context/MobileMenuContext';
-import { useTheme } from '../context/ThemeContext';
-import { GlobalSearch } from './GlobalSearch';
+import { useMobileMenu } from '../../context/MobileMenuContext';
+import { useTheme } from '../../context/ThemeContext';
+import { GlobalSearch } from '../search/GlobalSearch';
 
 export function Topbar() {
   const { toggleMobileMenu } = useMobileMenu();

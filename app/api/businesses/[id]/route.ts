@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../../src/lib/prisma';
+import { prisma } from '../../../../lib/prisma';
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
     const params = await context.params;

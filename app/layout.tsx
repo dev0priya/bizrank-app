@@ -1,8 +1,8 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Sidebar } from '../components/Sidebar';
-import { Topbar } from '../components/Topbar';
-import { Footer } from '../components/Footer';
+import { Sidebar } from '../components/layout/Sidebar';
+import { Topbar } from '../components/layout/Topbar';
+import { Footer } from '../components/layout/Footer';
 
 import { MobileMenuProvider } from '../context/MobileMenuContext';
 import { ThemeProvider } from '../context/ThemeContext';

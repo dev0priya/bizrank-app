@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '../../../../src/lib/prisma';
-import { GoogleMapsScraper } from '../../../../src/scraper';
-import { DataProcessor } from '../../../../src/processor';
-import { WebsiteAuditor } from '../../../../src/auditor';
+import { prisma } from '../../../../lib/prisma';
+import { GoogleMapsScraper } from '../../../../services/scraper';
+import { DataProcessor } from '../../../../services/processor';
+import { WebsiteAuditor } from '../../../../services/auditor';
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
     const params = await context.params;

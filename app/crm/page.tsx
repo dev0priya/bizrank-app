@@ -1,5 +1,5 @@
-import { prisma } from '../../src/lib/prisma';
-import CRMClient from '../../components/CRMClient';
+import { prisma } from '../../lib/prisma';
+import CRMClient from './CRMClient';
 
 export const dynamic = 'force-dynamic';
 

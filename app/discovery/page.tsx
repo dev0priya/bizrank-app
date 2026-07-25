@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SkeletonCard } from '../../components/Skeleton';
+import { SkeletonCard } from '../../components/ui/Skeleton';
 
 const containerVariants: any = {
   hidden: { opacity: 0 },

@@ -1,4 +1,4 @@
-import { prisma, safeDbQuery } from '../../src/lib/prisma';
+import { prisma, safeDbQuery } from '../../lib/prisma';
 import KanbanBoard from './KanbanBoard';
 
 export const dynamic = 'force-dynamic';
