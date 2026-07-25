@@ -5,6 +5,7 @@ import { Topbar } from '../components/Topbar';
 import { Footer } from '../components/Footer';
 
 import { MobileMenuProvider } from '../context/MobileMenuContext';
+import { ThemeProvider } from '../context/ThemeContext';
 
 export const metadata: Metadata = {
   title: 'BizRank SaaS',
@@ -19,21 +20,23 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <MobileMenuProvider>
-          <div className="app-container">
-            <Sidebar />
-            
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-              <Topbar />
-              <main className="main-content" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ flex: 1 }}>
-                  {children}
-                </div>
-                <Footer />
-              </main>
+        <ThemeProvider>
+          <MobileMenuProvider>
+            <div className="app-container">
+              <Sidebar />
+              
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+                <Topbar />
+                <main className="main-content no-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ flex: 1 }}>
+                    {children}
+                  </div>
+                  <Footer />
+                </main>
+              </div>
             </div>
-          </div>
-        </MobileMenuProvider>
+          </MobileMenuProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

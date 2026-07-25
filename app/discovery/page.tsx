@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, PlayCircle, Loader2, CheckCircle2, XCircle, MapPin, 
-  Phone, Globe, Mail, Star, BarChart3, Clock, Plus, ExternalLink, Target 
+  Phone, Globe, Mail, Star, BarChart3, Clock, Plus, ExternalLink, Target, RotateCcw
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -43,12 +43,113 @@ export default function BusinessDiscoveryPage() {
     // Results State
     const [businesses, setBusinesses] = useState<any[]>([]);
 
+    const [isHydrated, setIsHydrated] = useState(false);
+
+    // Initial Load: Master Data
     useEffect(() => {
         fetch('/api/master')
             .then(res => res.json())
             .then(data => setMasterData(data))
             .catch(console.error);
     }, []);
+
+    // Session Hydration
+    useEffect(() => {
+        const savedSession = sessionStorage.getItem('bizrank_discovery_session');
+        if (savedSession) {
+            try {
+                const parsed = JSON.parse(savedSession);
+                setSelectedCountry(parsed.selectedCountry || '');
+                setSelectedState(parsed.selectedState || '');
+                setSelectedCity(parsed.selectedCity || '');
+                setSelectedArea(parsed.selectedArea || '');
+                setSelectedCategory(parsed.selectedCategory || '');
+                setMaxResults(parsed.maxResults || 20);
+                
+                setJobId(parsed.jobId || null);
+                setJobStatus(parsed.jobStatus || '');
+                setProgress(parsed.progress || 0);
+                setStartTime(parsed.startTime || null);
+                setElapsedTime(parsed.elapsedTime || 0);
+                setBusinesses(parsed.businesses || []);
+
+                // Restore Scroll
+                if (parsed.scrollPosition) {
+                    setTimeout(() => {
+                        const mainContent = document.querySelector('.main-content');
+                        if (mainContent) {
+                            mainContent.scrollTop = parsed.scrollPosition;
+                        }
+                    }, 100);
+                }
+            } catch (e) {
+                console.error("Failed to parse session", e);
+            }
+        }
+        setIsHydrated(true);
+    }, []);
+
+    // Session Synchronization
+    useEffect(() => {
+        if (!isHydrated) return;
+
+        const sessionState = {
+            selectedCountry,
+            selectedState,
+            selectedCity,
+            selectedArea,
+            selectedCategory,
+            maxResults,
+            jobId,
+            jobStatus,
+            progress,
+            startTime,
+            elapsedTime,
+            businesses
+        };
+        
+        sessionStorage.setItem('bizrank_discovery_session', JSON.stringify(sessionState));
+    }, [isHydrated, selectedCountry, selectedState, selectedCity, selectedArea, selectedCategory, maxResults, jobId, jobStatus, progress, startTime, elapsedTime, businesses]);
+
+    // Scroll Position Tracking
+    useEffect(() => {
+        if (!isHydrated) return;
+
+        const mainContent = document.querySelector('.main-content');
+        if (!mainContent) return;
+
+        let scrollTimeout: any;
+        const handleScroll = () => {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                const savedSession = sessionStorage.getItem('bizrank_discovery_session');
+                if (savedSession) {
+                    const parsed = JSON.parse(savedSession);
+                    parsed.scrollPosition = mainContent.scrollTop;
+                    sessionStorage.setItem('bizrank_discovery_session', JSON.stringify(parsed));
+                }
+            }, 100);
+        };
+
+        mainContent.addEventListener('scroll', handleScroll);
+        return () => mainContent.removeEventListener('scroll', handleScroll);
+    }, [isHydrated]);
+
+    const handleClearSession = () => {
+        sessionStorage.removeItem('bizrank_discovery_session');
+        setSelectedCountry('');
+        setSelectedState('');
+        setSelectedCity('');
+        setSelectedArea('');
+        setSelectedCategory('');
+        setMaxResults(20);
+        setJobId(null);
+        setJobStatus('');
+        setProgress(0);
+        setStartTime(null);
+        setElapsedTime(0);
+        setBusinesses([]);
+    };
 
     const availableStates = masterData.states.filter((s: any) => !selectedCountry || s.countryId === parseInt(selectedCountry));
     const availableCities = masterData.cities.filter((c: any) => !selectedState || c.stateId === parseInt(selectedState));
@@ -82,6 +183,10 @@ export default function BusinessDiscoveryPage() {
             setStartTime(Date.now());
             setElapsedTime(0);
             setBusinesses([]); 
+            
+            // Auto reset scroll to top on new search
+            const mainContent = document.querySelector('.main-content');
+            if (mainContent) mainContent.scrollTop = 0;
         }
     };
 
@@ -137,6 +242,8 @@ export default function BusinessDiscoveryPage() {
         }
     };
 
+    if (!isHydrated) return null; // Avoid flash of unhydrated state
+
     return (
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
@@ -144,13 +251,25 @@ export default function BusinessDiscoveryPage() {
             transition={{ duration: 0.4 }}
             style={{ paddingBottom: '40px' }}
         >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                <Search size={28} className="text-gradient" />
-                <h1 className="text-gradient" style={{ margin: 0 }}>Business Discovery</h1>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Search size={28} className="text-gradient" />
+                    <h1 className="text-gradient" style={{ margin: 0 }}>Business Discovery</h1>
+                </div>
+                
+                {jobId && (
+                    <button 
+                        onClick={handleClearSession}
+                        className="btn-icon ripple"
+                        title="Clear Results & Start New Search"
+                    >
+                        <RotateCcw size={16} /> New Search
+                    </button>
+                )}
             </div>
             
             <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>
-                Execute highly targeted scraping jobs. Results shown here are strictly isolated to the current run.
+                Execute highly targeted scraping jobs. Your session and scroll position are automatically saved.
             </p>
 
             {/* TOP FUNNEL: Search Execution Form */}

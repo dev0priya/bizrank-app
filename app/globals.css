@@ -13,6 +13,21 @@
   --status-lead: #f59e0b;
 }
 
+:root.light {
+  --bg-color: #f8fafc;
+  --panel-bg: rgba(255, 255, 255, 0.9);
+  --border-color: rgba(0, 0, 0, 0.08);
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --accent-primary: #2563eb;
+  --accent-secondary: #6366f1;
+  --accent-gradient: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  --status-new: #2563eb;
+  --status-won: #059669;
+  --status-lost: #dc2626;
+  --status-lead: #d97706;
+}
+
 * {
   box-sizing: border-box;
   padding: 0;
@@ -94,6 +109,17 @@ body {
   flex: 1;
   padding: 40px;
   overflow-y: auto;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
 
 /* Typography & Utilities */

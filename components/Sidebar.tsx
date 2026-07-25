@@ -86,11 +86,11 @@ export function Sidebar() {
           </button>
         </div>
         
-        <div className="sidebar-nav" style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="sidebar-nav no-scrollbar" style={{ flex: 1, overflowY: 'auto', paddingRight: isCollapsed ? 0 : '8px' }}>
           {groups.map((group) => (
             <div key={group.title} style={{ marginBottom: '24px' }}>
               <div className="sidebar-group-title">{group.title}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
@@ -102,9 +102,25 @@ export function Sidebar() {
                       onClick={closeMobileMenu}
                       className={`nav-link ${isActive ? 'active' : ''}`}
                       title={isCollapsed ? item.name : undefined}
+                      style={{
+                        position: 'relative',
+                        padding: '10px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        borderRadius: '8px',
+                        color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
+                        background: isActive ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                        fontWeight: isActive ? 600 : 500,
+                        fontSize: '14px',
+                        transition: 'all 0.2s ease',
+                      }}
                     >
-                      <Icon size={20} />
-                      <span>{item.name}</span>
+                      {isActive && !isCollapsed && (
+                        <div style={{ position: 'absolute', left: '-12px', top: '50%', transform: 'translateY(-50%)', height: '60%', width: '3px', background: 'var(--accent-primary)', borderRadius: '0 4px 4px 0' }} />
+                      )}
+                      <Icon size={18} />
+                      <span style={{ display: isCollapsed ? 'none' : 'block' }}>{item.name}</span>
                     </Link>
                   );
                 })}
