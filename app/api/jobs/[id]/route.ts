@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
-import { GoogleMapsScraper } from '../../../../services/scraper';
+import { MockProvider } from '../../../../services/mockProvider';
 import { DataProcessor } from '../../../../services/processor';
 import { WebsiteAuditor } from '../../../../services/auditor';
 
@@ -25,7 +25,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             return NextResponse.json({ error: 'No Apify run associated' }, { status: 500 });
         }
 
-        const scraper = new GoogleMapsScraper();
+        const scraper = new MockProvider();
         const runStatus = await scraper.checkRunStatus(job.apifyRunId);
 
         if (!runStatus) {
