@@ -187,6 +187,8 @@ export default function BusinessDiscoveryPage() {
             // Auto reset scroll to top on new search
             const mainContent = document.querySelector('.main-content');
             if (mainContent) mainContent.scrollTop = 0;
+        } else if (data.error) {
+            alert(`Error: ${data.error}`);
         }
     };
 
