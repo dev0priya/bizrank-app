@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
-import { MockProvider } from '../../../services/mockProvider';
+import { GooglePlacesProvider } from '../../../services/googlePlacesProvider';
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
         const { country, state, city, area, category, maxResults } = body;
-        console.log(`\n--- MOCK PROVIDER PAYLOAD ---`);
+        console.log(`\n--- GOOGLE PLACES PAYLOAD ---`);
         console.log(`Payload: ${JSON.stringify({ country, state, city, area, category, maxResults }, null, 2)}`);
         
-        const scraper = new MockProvider();
+        const scraper = new GooglePlacesProvider();
         
         // Start run async
         const run = await scraper.startSearch({ 
