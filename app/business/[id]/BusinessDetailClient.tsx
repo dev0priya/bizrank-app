@@ -71,13 +71,18 @@ export default function BusinessDetailClient({ business }: { business: any }) {
                             )}
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                        <span className={`badge ${business.opportunity_score >= 70 ? 'badge-priority-b' : 'badge-priority-a'}`} style={{ fontSize: '14px', padding: '6px 12px' }}>
-                            Opp Score: {business.opportunity_score || 0}
-                        </span>
-                        <span className={`badge ${business.ai_score >= 70 ? 'badge-priority-c' : 'badge-priority-a'}`} style={{ fontSize: '14px', padding: '6px 12px' }}>
-                            AI Score: {business.ai_score || 0}
-                        </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <span className={`badge ${business.opportunity_score >= 70 ? 'badge-priority-b' : 'badge-priority-a'}`} style={{ fontSize: '14px', padding: '6px 12px' }}>
+                                Opp Score: {business.opportunity_score || 0}
+                            </span>
+                            <span className={`badge ${business.ai_score >= 70 ? 'badge-priority-c' : 'badge-priority-a'}`} style={{ fontSize: '14px', padding: '6px 12px' }}>
+                                AI Score: {business.ai_score || 0}
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: business.website ? 'var(--text-muted)' : 'var(--status-won)', fontWeight: business.website ? 'normal' : 500 }}>
+                            {business.website ? 'Opportunity: Low (Website Exists)' : 'Opportunity: High (No Website Available)'}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -89,10 +94,14 @@ export default function BusinessDetailClient({ business }: { business: any }) {
                         <MapPin size={18} /> Open in Google Maps
                     </a>
                 )}
-                {business.website && (
+                {business.website ? (
                     <a href={business.website} target="_blank" rel="noreferrer" className="btn-icon ripple hover-lift" style={{ flex: 1, minWidth: '160px', padding: '12px' }}>
                         <Globe size={18} /> Visit Website
                     </a>
+                ) : (
+                    <button className="btn-icon ripple" disabled style={{ flex: 1, minWidth: '160px', padding: '12px', opacity: 0.5, cursor: 'not-allowed' }}>
+                        <Globe size={18} /> No Website Available
+                    </button>
                 )}
                 {business.phone_number && (
                     <a href={`tel:${business.phone_number}`} className="btn-icon ripple hover-lift" style={{ flex: 1, minWidth: '160px', padding: '12px' }}>

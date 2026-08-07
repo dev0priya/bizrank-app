@@ -461,10 +461,14 @@ export default function BusinessDiscoveryPage() {
                                             <MapPin size={16} /> Open Maps
                                         </a>
                                     )}
-                                    {b.website && (
+                                    {b.website ? (
                                         <a href={b.website} target="_blank" rel="noreferrer" className="btn-icon ripple">
                                             <Globe size={16} /> Visit Website
                                         </a>
+                                    ) : (
+                                        <button className="btn-icon ripple" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                                            <Globe size={16} /> No Website Available
+                                        </button>
                                     )}
                                     <Link href={`/business/${b.id}`} className="btn-icon ripple">
                                         <ExternalLink size={16} /> View Details

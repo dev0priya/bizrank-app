@@ -155,18 +155,20 @@ export class MockProvider {
 
             const placeId = 'ChIJ' + Math.floor(rand() * 10000000000000000).toString(16) + 'mock';
 
+            const fullAddress = `${Math.floor(rand() * 150) + 1}, ${area || 'Main Market'}, ${city || 'City'}, ${state || 'State'}`;
+
             items.push({
                 placeId,
                 title: businessName,
                 categoryName: category,
-                address: `${Math.floor(rand() * 150) + 1}, ${area || 'Main Market'}, ${city || 'City'}, ${state || 'State'}`,
+                address: fullAddress,
                 neighborhood: area,
                 city: city,
                 state: state,
                 countryCode: "IN",
                 phoneUnformatted: `+9198${Math.floor(rand() * 100000000).toString().padStart(8, '0')}`,
                 website: website,
-                url: `https://maps.google.com/?cid=${Math.floor(rand()*1000000)}`,
+                url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(businessName + ' ' + fullAddress)}`,
                 totalScore: 3.5 + (rand() * 1.5), 
                 reviewsCount: Math.floor(rand() * 1000) + 5,
                 location: {
