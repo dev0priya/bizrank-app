@@ -1,21 +1,13 @@
 import { ApifyClient } from 'apify-client';
 import { Config } from '../config/config';
+import { BusinessProvider, SearchParams } from './providerFactory';
 
-export interface SearchParams {
-    country?: string;
-    state?: string;
-    city?: string;
-    area?: string;
-    category?: string;
-    maxResults?: number;
-}
-
-export class GoogleMapsScraper {
+export class ApifyProvider implements BusinessProvider {
     private client: ApifyClient;
 
     constructor() {
         if (!Config.APIFY_API_TOKEN) {
-            throw new Error("APIFY_API_TOKEN is not set in environment variables.");
+            throw new Error("APIFY_API_TOKEN is missing. Please configure it in .env to use the Apify provider.");
         }
         this.client = new ApifyClient({ token: Config.APIFY_API_TOKEN });
     }
@@ -50,11 +42,20 @@ export class GoogleMapsScraper {
         const run = await this.client.actor(Config.APIFY_ACTOR_ID).start(runInput);
         console.log(`Scraper started. Run ID: ${run.id}`);
         
-        return run;
+        return {
+            id: run.id,
+            status: run.status,
+            defaultDatasetId: run.defaultDatasetId
+        };
     }
 
     async checkRunStatus(runId: string) {
-        return await this.client.run(runId).get();
+        const run = await this.client.run(runId).get();
+        return {
+            id: run!.id,
+            status: run!.status,
+            defaultDatasetId: run!.defaultDatasetId
+        };
     }
 
     async getDatasetItems(datasetId: string) {

@@ -1,11 +1,4 @@
-export interface SearchParams {
-    country?: string;
-    state?: string;
-    city?: string;
-    area?: string;
-    category?: string;
-    maxResults?: number;
-}
+import { BusinessProvider, SearchParams } from './providerFactory';
 
 // Deterministic hash function for string -> number
 function xmur3(str: string) {
@@ -31,7 +24,7 @@ function mulberry32(a: number) {
     }
 }
 
-export class MockProvider {
+export class MockProvider implements BusinessProvider {
     async startSearch(params: SearchParams) {
         // Create a determinist ID so it can be passed around
         const base64Params = Buffer.from(JSON.stringify(params)).toString('base64');

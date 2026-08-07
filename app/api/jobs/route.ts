@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
-import { GooglePlacesProvider } from '../../../services/googlePlacesProvider';
+import { ProviderFactory } from '../../../services/providerFactory';
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { country, state, city, area, category, maxResults } = body;
-        console.log(`\n--- GOOGLE PLACES PAYLOAD ---`);
-        console.log(`Payload: ${JSON.stringify({ country, state, city, area, category, maxResults }, null, 2)}`);
+        const { country, state, city, area, category, maxResults, provider = 'apify' } = body;
+        console.log(`\n--- DISCOVERY JOB PAYLOAD ---`);
+        console.log(`Payload: ${JSON.stringify({ country, state, city, area, category, maxResults, provider }, null, 2)}`);
         
-        const scraper = new GooglePlacesProvider();
+        const scraper = ProviderFactory.createProvider(provider);
         
         // Start run async
         const run = await scraper.startSearch({ 
@@ -23,6 +23,7 @@ export async function POST(request: Request) {
         const job = await prisma.collectionJob.create({
             data: {
                 apifyRunId: run.id,
+                provider: provider,
                 status: 'Running',
                 query: queryLabel,
                 progress: 0,

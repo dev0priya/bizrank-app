@@ -63,6 +63,7 @@ model BusinessCategory {
 model CollectionJob {
   id          Int        @id @default(autoincrement())
   apifyRunId  String?    
+  provider    String     @default("apify")
   status      String     // 'Pending', 'Running', 'Completed', 'Failed'
   query       String     // Summary of parameters e.g., "Plumbers, Austin, TX"
   progress    Int        @default(0)

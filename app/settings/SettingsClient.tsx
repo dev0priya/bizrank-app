@@ -11,6 +11,7 @@ export default function SettingsClient() {
     const [darkMode, setDarkMode] = useState(true);
     
     const [saved, setSaved] = useState(false);
+    const [providerStatus, setProviderStatus] = useState<any>({ apify: false, google_places: false, mock: true });
 
     useEffect(() => {
         // Load existing settings
@@ -19,6 +20,11 @@ export default function SettingsClient() {
         setMaxConcurrency(localStorage.getItem('bizrank_concurrency') || '5');
         setDefaultLimit(localStorage.getItem('bizrank_limit') || '50');
         setDarkMode(localStorage.getItem('bizrank_theme') !== 'light');
+
+        fetch('/api/settings/providers')
+            .then(res => res.json())
+            .then(data => setProviderStatus(data))
+            .catch(err => console.error("Failed to load provider status", err));
     }, []);
 
     const handleSave = () => {
@@ -43,36 +49,45 @@ export default function SettingsClient() {
                 Configure global application parameters, API connections, and extraction thresholds.
             </p>
 
-            {/* API KEYS */}
+            {/* PROVIDER CONFIGURATIONS */}
             <div className="glass-panel" style={{ marginBottom: '24px' }}>
                 <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-                    <Key size={18} /> API Connections
+                    <Key size={18} /> Provider Configurations
                 </h3>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                            Apify API Token (For Google Maps Scraper)
-                        </label>
-                        <input 
-                            type="password" 
-                            value={apifyKey}
-                            onChange={e => setApifyKey(e.target.value)}
-                            placeholder="apify_api_..."
-                            style={{ width: '100%', padding: '10px 16px', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid var(--border-color)', borderRadius: '8px', outline: 'none' }}
-                        />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <div>
+                            <div style={{ fontWeight: 600 }}>Apify (Default)</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Requires APIFY_API_TOKEN</div>
+                        </div>
+                        <div>
+                            {providerStatus.apify ? 
+                                <span style={{ color: 'var(--status-won)', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={16} /> Connected</span> : 
+                                <span style={{ color: 'var(--status-lost)' }}>Not Configured</span>}
+                        </div>
                     </div>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                            OpenAI API Key (For Website Audits)
-                        </label>
-                        <input 
-                            type="password" 
-                            value={openAiKey}
-                            onChange={e => setOpenAiKey(e.target.value)}
-                            placeholder="sk-..."
-                            style={{ width: '100%', padding: '10px 16px', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid var(--border-color)', borderRadius: '8px', outline: 'none' }}
-                        />
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <div>
+                            <div style={{ fontWeight: 600 }}>Google Places</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Requires GOOGLE_MAPS_API_KEY</div>
+                        </div>
+                        <div>
+                            {providerStatus.google_places ? 
+                                <span style={{ color: 'var(--status-won)', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={16} /> Connected</span> : 
+                                <span style={{ color: 'var(--status-lost)' }}>Not Configured</span>}
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <div>
+                            <div style={{ fontWeight: 600 }}>Mock Provider</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>For development/testing only</div>
+                        </div>
+                        <div>
+                            <span style={{ color: 'var(--status-won)', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={16} /> Always Available</span>
+                        </div>
                     </div>
                 </div>
             </div>

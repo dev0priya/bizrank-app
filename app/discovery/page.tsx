@@ -26,6 +26,7 @@ export default function BusinessDiscoveryPage() {
     const [masterData, setMasterData] = useState<any>({ countries: [], states: [], cities: [], areas: [], categories: [] });
     
     // Funnel State
+    const [selectedProvider, setSelectedProvider] = useState('apify');
     const [selectedCountry, setSelectedCountry] = useState('');
     const [selectedState, setSelectedState] = useState('');
     const [selectedCity, setSelectedCity] = useState('');
@@ -59,6 +60,7 @@ export default function BusinessDiscoveryPage() {
         if (savedSession) {
             try {
                 const parsed = JSON.parse(savedSession);
+                setSelectedProvider(parsed.selectedProvider || 'apify');
                 setSelectedCountry(parsed.selectedCountry || '');
                 setSelectedState(parsed.selectedState || '');
                 setSelectedCity(parsed.selectedCity || '');
@@ -94,6 +96,7 @@ export default function BusinessDiscoveryPage() {
         if (!isHydrated) return;
 
         const sessionState = {
+            selectedProvider,
             selectedCountry,
             selectedState,
             selectedCity,
@@ -109,7 +112,7 @@ export default function BusinessDiscoveryPage() {
         };
         
         sessionStorage.setItem('bizrank_discovery_session', JSON.stringify(sessionState));
-    }, [isHydrated, selectedCountry, selectedState, selectedCity, selectedArea, selectedCategory, maxResults, jobId, jobStatus, progress, startTime, elapsedTime, businesses]);
+    }, [isHydrated, selectedProvider, selectedCountry, selectedState, selectedCity, selectedArea, selectedCategory, maxResults, jobId, jobStatus, progress, startTime, elapsedTime, businesses]);
 
     // Scroll Position Tracking
     useEffect(() => {
@@ -137,6 +140,7 @@ export default function BusinessDiscoveryPage() {
 
     const handleClearSession = () => {
         sessionStorage.removeItem('bizrank_discovery_session');
+        setSelectedProvider('apify');
         setSelectedCountry('');
         setSelectedState('');
         setSelectedCity('');
@@ -162,6 +166,7 @@ export default function BusinessDiscoveryPage() {
         }
 
         const payload = {
+            provider: selectedProvider,
             country: masterData.countries.find((c: any) => c.id === parseInt(selectedCountry))?.name || '',
             state: masterData.states.find((s: any) => s.id === parseInt(selectedState))?.name || '',
             city: masterData.cities.find((c: any) => c.id === parseInt(selectedCity))?.name || '',
@@ -326,7 +331,25 @@ export default function BusinessDiscoveryPage() {
                         <input type="number" className="select-input" value={maxResults} onChange={e => setMaxResults(parseInt(e.target.value) || 20)} min="1" max="500" />
                     </div>
 
-                    <div>
+                    <div style={{ gridColumn: '1 / -1', marginTop: '16px', marginBottom: '8px' }}>
+                        <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Business Data Provider</label>
+                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                <input type="radio" name="provider" value="apify" checked={selectedProvider === 'apify'} onChange={e => setSelectedProvider(e.target.value)} />
+                                <span>Apify (Default)</span>
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                <input type="radio" name="provider" value="google_places" checked={selectedProvider === 'google_places'} onChange={e => setSelectedProvider(e.target.value)} />
+                                <span>Google Places</span>
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                                <input type="radio" name="provider" value="mock" checked={selectedProvider === 'mock'} onChange={e => setSelectedProvider(e.target.value)} />
+                                <span>Mock Provider</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style={{ gridColumn: '1 / -1' }}>
                         <button 
                             className={`ripple hover-lift ${jobStatus !== 'Running' ? 'btn-primary' : ''}`}
                             onClick={handleStartSearch} 

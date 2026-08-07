@@ -1,13 +1,6 @@
-export interface SearchParams {
-    country?: string;
-    state?: string;
-    city?: string;
-    area?: string;
-    category?: string;
-    maxResults?: number;
-}
+import { BusinessProvider, SearchParams } from './providerFactory';
 
-export class GooglePlacesProvider {
+export class GooglePlacesProvider implements BusinessProvider {
     private apiKey: string;
 
     constructor() {
