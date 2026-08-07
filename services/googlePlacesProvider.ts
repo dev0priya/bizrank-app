@@ -1,5 +1,3 @@
-import { MockProvider } from './mockProvider';
-
 export interface SearchParams {
     country?: string;
     state?: string;
@@ -11,19 +9,17 @@ export interface SearchParams {
 
 export class GooglePlacesProvider {
     private apiKey: string;
-    private mockFallback: MockProvider;
 
     constructor() {
         this.apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
-        this.mockFallback = new MockProvider();
         if (!this.apiKey) {
-            console.warn('[GooglePlacesProvider] WARNING: GOOGLE_MAPS_API_KEY is not set. Falling back to MockProvider.');
+            console.warn('[GooglePlacesProvider] WARNING: GOOGLE_MAPS_API_KEY is not set. Google Places API calls will fail.');
         }
     }
 
     async startSearch(params: SearchParams) {
         if (!this.apiKey) {
-            return this.mockFallback.startSearch(params);
+            throw new Error('GOOGLE_MAPS_API_KEY is missing. Please configure it in .env to use the Discovery Engine.');
         }
         
         const base64Params = Buffer.from(JSON.stringify(params)).toString('base64');
@@ -36,9 +32,6 @@ export class GooglePlacesProvider {
     }
 
     async checkRunStatus(runId: string) {
-        if (runId.startsWith('mock-run-')) {
-            return this.mockFallback.checkRunStatus(runId);
-        }
         return {
             id: runId,
             status: 'SUCCEEDED',
@@ -47,8 +40,8 @@ export class GooglePlacesProvider {
     }
 
     async getDatasetItems(datasetId: string) {
-        if (datasetId.startsWith('mock-dataset-')) {
-            return this.mockFallback.getDatasetItems(datasetId);
+        if (!this.apiKey) {
+            throw new Error('GOOGLE_MAPS_API_KEY is missing.');
         }
 
         const b64 = datasetId.replace('places-dataset-', '');
@@ -76,9 +69,7 @@ export class GooglePlacesProvider {
 
             if (searchData.status !== 'OK') {
                 console.warn('[GooglePlacesProvider] Places Search API Error or no results:', searchData.status);
-                // Fallback to mock on any API failure so we don't return 0 results
-                const mockRun = await this.mockFallback.startSearch(params);
-                return this.mockFallback.getDatasetItems(mockRun.defaultDatasetId);
+                throw new Error(`Google Places API returned status: ${searchData.status}`);
             }
 
             const places = searchData.results || [];
@@ -117,9 +108,7 @@ export class GooglePlacesProvider {
             }
         } catch (error) {
             console.error('[GooglePlacesProvider] Fatal Error:', error);
-            // Fallback to mock on exception
-            const mockRun = await this.mockFallback.startSearch(params);
-            return this.mockFallback.getDatasetItems(mockRun.defaultDatasetId);
+            throw error;
         }
 
         return items;
