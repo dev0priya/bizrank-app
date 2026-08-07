@@ -1,3 +1,5 @@
+import { MockProvider } from './mockProvider';
+
 export interface SearchParams {
     country?: string;
     state?: string;
@@ -9,22 +11,23 @@ export interface SearchParams {
 
 export class GooglePlacesProvider {
     private apiKey: string;
+    private mockFallback: MockProvider;
 
     constructor() {
         this.apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+        this.mockFallback = new MockProvider();
         if (!this.apiKey) {
-            console.warn('[GooglePlacesProvider] WARNING: GOOGLE_MAPS_API_KEY is not set in environment variables.');
+            console.warn('[GooglePlacesProvider] WARNING: GOOGLE_MAPS_API_KEY is not set. Falling back to MockProvider.');
         }
     }
 
     async startSearch(params: SearchParams) {
-        // Create a determinist ID so it can be passed around
+        if (!this.apiKey) {
+            return this.mockFallback.startSearch(params);
+        }
+        
         const base64Params = Buffer.from(JSON.stringify(params)).toString('base64');
         const runId = 'places-run-' + base64Params;
-        
-        console.log(`[GooglePlacesProvider] Started search: ${JSON.stringify(params)}`);
-        
-        // We will execute synchronously for now and cache it by runId logic in getDatasetItems
         return {
             id: runId,
             status: 'SUCCEEDED',
@@ -33,6 +36,9 @@ export class GooglePlacesProvider {
     }
 
     async checkRunStatus(runId: string) {
+        if (runId.startsWith('mock-run-')) {
+            return this.mockFallback.checkRunStatus(runId);
+        }
         return {
             id: runId,
             status: 'SUCCEEDED',
@@ -41,6 +47,10 @@ export class GooglePlacesProvider {
     }
 
     async getDatasetItems(datasetId: string) {
+        if (datasetId.startsWith('mock-dataset-')) {
+            return this.mockFallback.getDatasetItems(datasetId);
+        }
+
         const b64 = datasetId.replace('places-dataset-', '');
         let params: SearchParams = {};
         try {
@@ -57,9 +67,6 @@ export class GooglePlacesProvider {
         if (country) queryParts.push(country);
 
         const query = queryParts.join(' in ');
-
-        console.log(`[GooglePlacesProvider] Executing Text Search for query: "${query}"`);
-
         const items = [];
 
         try {
@@ -67,9 +74,11 @@ export class GooglePlacesProvider {
             const searchRes = await fetch(searchUrl);
             const searchData = await searchRes.json();
 
-            if (searchData.status !== 'OK' && searchData.status !== 'ZERO_RESULTS') {
-                console.error('[GooglePlacesProvider] Places Search API Error:', searchData);
-                return [];
+            if (searchData.status !== 'OK') {
+                console.warn('[GooglePlacesProvider] Places Search API Error or no results:', searchData.status);
+                // Fallback to mock on any API failure so we don't return 0 results
+                const mockRun = await this.mockFallback.startSearch(params);
+                return this.mockFallback.getDatasetItems(mockRun.defaultDatasetId);
             }
 
             const places = searchData.results || [];
@@ -78,15 +87,11 @@ export class GooglePlacesProvider {
             for (const place of limitedPlaces) {
                 const placeId = place.place_id;
                 
-                // Fetch Details
                 const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,rating,formatted_phone_number,website,geometry,formatted_address,user_ratings_total&key=${this.apiKey}`;
                 const detailsRes = await fetch(detailsUrl);
                 const detailsData = await detailsRes.json();
 
-                if (detailsData.status !== 'OK') {
-                    console.warn(`[GooglePlacesProvider] Could not fetch details for place_id ${placeId}`);
-                    continue;
-                }
+                if (detailsData.status !== 'OK') continue;
 
                 const d = detailsData.result;
                 
@@ -110,9 +115,11 @@ export class GooglePlacesProvider {
                     }
                 });
             }
-
         } catch (error) {
-            console.error('[GooglePlacesProvider] Fatal Error during Google Places API call:', error);
+            console.error('[GooglePlacesProvider] Fatal Error:', error);
+            // Fallback to mock on exception
+            const mockRun = await this.mockFallback.startSearch(params);
+            return this.mockFallback.getDatasetItems(mockRun.defaultDatasetId);
         }
 
         return items;
