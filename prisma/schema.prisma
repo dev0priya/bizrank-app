@@ -25,19 +25,68 @@ model State {
   name      String
   countryId Int
   country   Country @relation(fields: [countryId], references: [id])
+  districts District[]
   cities    City[]
 
   businesses Business[]
+
+  source        String?
+  sourceCode    String?
+  sourceDataset String?
+  sourceVersion String?
+  sourceUrl     String?
+  importedAt    DateTime   @default(now())
+}
+
+model District {
+  id           Int           @id @default(autoincrement())
+  name         String
+  stateId      Int
+  state        State         @relation(fields: [stateId], references: [id])
+  subdistricts SubDistrict[]
+  businesses   Business[]
+
+  source        String?
+  sourceCode    String?
+  sourceDataset String?
+  sourceVersion String?
+  sourceUrl     String?
+  importedAt    DateTime     @default(now())
+}
+
+model SubDistrict {
+  id         Int      @id @default(autoincrement())
+  name       String
+  districtId Int
+  district   District @relation(fields: [districtId], references: [id])
+  cities     City[]
+  businesses Business[]
+
+  source        String?
+  sourceCode    String?
+  sourceDataset String?
+  sourceVersion String?
+  sourceUrl     String?
+  importedAt    DateTime     @default(now())
 }
 
 model City {
-  id      Int     @id @default(autoincrement())
-  name    String
-  stateId Int
-  state   State   @relation(fields: [stateId], references: [id])
-  areas   Area[]
+  id            Int          @id @default(autoincrement())
+  name          String
+  type          String?      // CITY, TOWN, VILLAGE, CENSUS_TOWN, etc.
+  stateId       Int?
+  state         State?       @relation(fields: [stateId], references: [id])
+  subdistrictId Int?
+  subdistrict   SubDistrict? @relation(fields: [subdistrictId], references: [id])
+  areas         Area[]
+  businesses    Business[]
 
-  businesses Business[]
+  source        String?
+  sourceCode    String?
+  sourceDataset String?
+  sourceVersion String?
+  sourceUrl     String?
+  importedAt    DateTime     @default(now())
 }
 
 model Area {
@@ -45,8 +94,14 @@ model Area {
   name    String
   cityId  Int
   city    City    @relation(fields: [cityId], references: [id])
-
   businesses Business[]
+
+  source        String?
+  sourceCode    String?
+  sourceDataset String?
+  sourceVersion String?
+  sourceUrl     String?
+  importedAt    DateTime     @default(now())
 }
 
 model BusinessCategory {
@@ -94,6 +149,12 @@ model Business {
   
   city_id           Int?
   city              City? @relation(fields: [city_id], references: [id])
+
+  subdistrict_id    Int?
+  subdistrict       SubDistrict? @relation(fields: [subdistrict_id], references: [id])
+
+  district_id       Int?
+  district          District? @relation(fields: [district_id], references: [id])
   
   state_id          Int?
   state             State? @relation(fields: [state_id], references: [id])

@@ -46,16 +46,44 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             const processed = DataProcessor.processAndDeduplicate(rawItems, searchCategory);
             const audited = await WebsiteAuditor.auditBusinesses(processed);
 
-            // Fetch Master Tables to resolve IDs (simple cache)
+            // Fetch only the categories and relevant locations on-demand to optimize memory and speed
             const categories = await prisma.businessCategory.findMany();
-            const cities = await prisma.city.findMany();
-            const states = await prisma.state.findMany();
-            const countries = await prisma.country.findMany();
+            
+            const uniqueCityNames = Array.from(new Set(audited.map(biz => biz.city).filter(Boolean))) as string[];
+            const uniqueStateNames = Array.from(new Set(audited.map(biz => biz.state).filter(Boolean))) as string[];
+            const uniqueCountryNames = Array.from(new Set(audited.map(biz => biz.country).filter(Boolean))) as string[];
 
-            const getCatId = (name: string | null) => categories.find(c => c.name.toLowerCase() === name?.toLowerCase())?.id || null;
-            const getCityId = (name: string | null) => cities.find(c => c.name.toLowerCase() === name?.toLowerCase())?.id || null;
-            const getStateId = (name: string | null) => states.find(c => c.name.toLowerCase() === name?.toLowerCase())?.id || null;
-            const getCountryId = (code: string | null) => countries.find(c => c.code?.toLowerCase() === code?.toLowerCase() || c.name.toLowerCase() === code?.toLowerCase())?.id || null;
+            const cities = uniqueCityNames.length > 0 
+                ? await prisma.city.findMany({ where: { name: { in: uniqueCityNames, mode: 'insensitive' } } }) 
+                : [];
+            const states = uniqueStateNames.length > 0 
+                ? await prisma.state.findMany({ where: { name: { in: uniqueStateNames, mode: 'insensitive' } } }) 
+                : [];
+            const countries = uniqueCountryNames.length > 0 
+                ? await prisma.country.findMany({ 
+                    where: { 
+                        OR: [
+                            { name: { in: uniqueCountryNames, mode: 'insensitive' } },
+                            { code: { in: uniqueCountryNames, mode: 'insensitive' } }
+                        ] 
+                    } 
+                  }) 
+                : [];
+
+            const categoryMap = new Map(categories.map(c => [c.name.toLowerCase(), c.id]));
+            const cityMap = new Map(cities.map(c => [c.name.toLowerCase(), c.id]));
+            const stateMap = new Map(states.map(s => [s.name.toLowerCase(), s.id]));
+            const countryMap = new Map(countries.map(c => [c.name.toLowerCase(), c.id]));
+            const countryCodeMap = new Map(countries.filter(c => c.code).map(c => [c.code!.toLowerCase(), c.id]));
+
+            const getCatId = (name: string | null) => name ? categoryMap.get(name.toLowerCase()) || null : null;
+            const getCityId = (name: string | null) => name ? cityMap.get(name.toLowerCase()) || null : null;
+            const getStateId = (name: string | null) => name ? stateMap.get(name.toLowerCase()) || null : null;
+            const getCountryId = (code: string | null) => {
+                if (!code) return null;
+                const normalized = code.toLowerCase();
+                return countryMap.get(normalized) || countryCodeMap.get(normalized) || null;
+            };
 
             for (const biz of audited) {
                 const aiScore = biz.ai_score || 0;

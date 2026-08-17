@@ -34,6 +34,41 @@ export default function BusinessDiscoveryPage() {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [maxResults, setMaxResults] = useState(20);
     
+    const [availableCities, setAvailableCities] = useState<any[]>([]);
+    const [availableAreas, setAvailableAreas] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!selectedState) {
+            setAvailableCities([]);
+            setSelectedCity('');
+            return;
+        }
+        fetch(`/api/master/location?type=city&stateId=${selectedState}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.data) {
+                    setAvailableCities(data.data);
+                }
+            })
+            .catch(console.error);
+    }, [selectedState]);
+
+    useEffect(() => {
+        if (!selectedCity) {
+            setAvailableAreas([]);
+            setSelectedArea('');
+            return;
+        }
+        fetch(`/api/master/location?type=area&parentId=${selectedCity}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.data) {
+                    setAvailableAreas(data.data);
+                }
+            })
+            .catch(console.error);
+    }, [selectedCity]);
+    
     // Execution State
     const [jobId, setJobId] = useState<number | null>(null);
     const [jobStatus, setJobStatus] = useState<string>('');
@@ -156,8 +191,6 @@ export default function BusinessDiscoveryPage() {
     };
 
     const availableStates = masterData.states.filter((s: any) => !selectedCountry || s.countryId === parseInt(selectedCountry));
-    const availableCities = masterData.cities.filter((c: any) => !selectedState || c.stateId === parseInt(selectedState));
-    const availableAreas = masterData.areas.filter((a: any) => !selectedCity || a.cityId === parseInt(selectedCity));
 
     const handleStartSearch = async () => {
         if (!selectedCategory || !selectedCity) {
@@ -169,8 +202,8 @@ export default function BusinessDiscoveryPage() {
             provider: selectedProvider,
             country: masterData.countries.find((c: any) => c.id === parseInt(selectedCountry))?.name || '',
             state: masterData.states.find((s: any) => s.id === parseInt(selectedState))?.name || '',
-            city: masterData.cities.find((c: any) => c.id === parseInt(selectedCity))?.name || '',
-            area: masterData.areas.find((a: any) => a.id === parseInt(selectedArea))?.name || '',
+            city: availableCities.find((c: any) => c.id === parseInt(selectedCity))?.name || '',
+            area: availableAreas.find((a: any) => a.id === parseInt(selectedArea))?.name || '',
             category: masterData.categories.find((c: any) => c.id === parseInt(selectedCategory))?.name || '',
             maxResults
         };

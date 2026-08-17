@@ -16,8 +16,24 @@ export default function MasterDataClient({ initialCategories, initialCountries, 
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCityName, setNewCityName] = useState('');
     const [selectedStateForCity, setSelectedStateForCity] = useState('');
+    const [selectedStateFilter, setSelectedStateFilter] = useState('');
     
     const [error, setError] = useState('');
+
+    React.useEffect(() => {
+        if (!selectedStateFilter) {
+            setCities(initialCities);
+            return;
+        }
+        fetch(`/api/master/location?type=city&stateId=${selectedStateFilter}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.data) {
+                    setCities(data.data);
+                }
+            })
+            .catch(err => setError(err.message));
+    }, [selectedStateFilter, initialCities]);
 
     const handleCreateCategory = async () => {
         if (!newCategoryName) return;
@@ -152,15 +168,29 @@ export default function MasterDataClient({ initialCategories, initialCountries, 
             {/* LOCATIONS TAB */}
             {activeTab === 'locations' && (
                 <div className="glass-panel">
-                    <h3 style={{ marginBottom: '20px' }}>City Dictionary</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                        <h3 style={{ margin: 0 }}>City Dictionary</h3>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <label style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Filter by State:</label>
+                            <select 
+                                value={selectedStateFilter} 
+                                onChange={e => setSelectedStateFilter(e.target.value)}
+                                style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid var(--border-color)', borderRadius: '8px', outline: 'none', fontSize: '14px' }}
+                            >
+                                <option value="">View Sample Cities (First 100)</option>
+                                {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
                     
-                    <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
                         <select 
                             value={selectedStateForCity} 
                             onChange={e => setSelectedStateForCity(e.target.value)}
                             style={{ flex: 1, minWidth: '200px', padding: '10px 16px', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid var(--border-color)', borderRadius: '8px', outline: 'none' }}
                         >
-                            <option value="">Select State</option>
+                            <option value="">Select State for New City</option>
                             {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                         <input 

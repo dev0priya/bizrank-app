@@ -46,3 +46,72 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Delete failed. Ensure there are no dependent records linked to this location.' }, { status: 400 });
     }
 }
+
+export async function GET(request: Request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const type = searchParams.get('type');
+        const parentId = parseInt(searchParams.get('parentId') || '0');
+
+        if (!type) {
+            return NextResponse.json({ error: 'Type is required (state, district, subdistrict, city, area)' }, { status: 400 });
+        }
+
+        let data;
+        if (type === 'state') {
+            data = await prisma.state.findMany({
+                where: parentId ? { countryId: parentId } : {},
+                orderBy: { name: 'asc' }
+            });
+        } else if (type === 'district') {
+            data = await prisma.district.findMany({
+                where: parentId ? { stateId: parentId } : {},
+                orderBy: { name: 'asc' }
+            });
+        } else if (type === 'subdistrict') {
+            data = await prisma.subDistrict.findMany({
+                where: parentId ? { districtId: parentId } : {},
+                orderBy: { name: 'asc' }
+            });
+        } else if (type === 'city') {
+            const stateId = parseInt(searchParams.get('stateId') || '0');
+            const subdistrictId = parseInt(searchParams.get('subdistrictId') || '0');
+            
+            if (subdistrictId) {
+                data = await prisma.city.findMany({
+                    where: { subdistrictId },
+                    orderBy: { name: 'asc' }
+                });
+            } else if (stateId) {
+                // Fetch first 1000 cities of state if no subdistrict specified to prevent huge lists
+                data = await prisma.city.findMany({
+                    where: { stateId },
+                    take: 1000,
+                    orderBy: { name: 'asc' }
+                });
+            } else if (parentId) {
+                data = await prisma.city.findMany({
+                    where: { OR: [{ stateId: parentId }, { subdistrictId: parentId }] },
+                    take: 1000,
+                    orderBy: { name: 'asc' }
+                });
+            } else {
+                data = await prisma.city.findMany({
+                    take: 100,
+                    orderBy: { name: 'asc' }
+                });
+            }
+        } else if (type === 'area') {
+            data = await prisma.area.findMany({
+                where: parentId ? { cityId: parentId } : {},
+                orderBy: { name: 'asc' }
+            });
+        } else {
+            return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 });
+        }
+
+        return NextResponse.json({ success: true, data });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}

@@ -8,7 +8,7 @@ export default async function MasterDataPage() {
     const categories = await prisma.businessCategory.findMany({ orderBy: { name: 'asc' } });
     const countries = await prisma.country.findMany({ orderBy: { name: 'asc' } });
     const states = await prisma.state.findMany({ orderBy: { name: 'asc' } });
-    const cities = await prisma.city.findMany({ orderBy: { name: 'asc' } });
+    const cities = await prisma.city.findMany({ take: 100, orderBy: { name: 'asc' } });
 
     return <MasterDataClient 
         initialCategories={categories} 

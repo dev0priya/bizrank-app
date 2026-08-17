@@ -43,3 +43,7 @@ dist/
 .env.backup
 
 !.env.example
+
+# Geographic Data Raw Cache
+data/geographic/raw/
+data/geographic/reports/parse_errors.json
