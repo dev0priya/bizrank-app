@@ -8,7 +8,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:geo": "ts-node services/test_geography_v2.ts",
+    "test:opp": "ts-node services/test_opportunity_scorer.ts",
+    "test:e2e": "ts-node services/verify_e2e.ts",
+    "test:all": "ts-node services/test_opportunity_scorer.ts && ts-node services/test_geography_v2.ts && ts-node services/verify_e2e.ts",
+    "type-check": "tsc --noEmit",
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

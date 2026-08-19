@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Search, PlayCircle, Loader2, CheckCircle2, XCircle, MapPin, 
-  Phone, Globe, Mail, Star, BarChart3, Clock, Plus, ExternalLink, Target, RotateCcw
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Search, PlayCircle, Loader2, CheckCircle2, MapPin,
+  Phone, Globe, Star, BarChart3, Clock, Plus, ExternalLink,
+  Target, RotateCcw, ChevronDown, ChevronUp, Filter, AlertCircle,
+  TrendingUp, Zap, Building2
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,657 +13,840 @@ import { SkeletonCard } from '../../components/ui/Skeleton';
 
 const containerVariants: any = {
   hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 }
-  }
+  show: { opacity: 1, transition: { staggerChildren: 0.06 } }
 };
 
 const cardVariants: any = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 280, damping: 22 } }
 };
 
+interface LocationSuggestion {
+  id: number;
+  name: string;
+  displayName: string;
+  type: string;
+  stateId: number;
+  stateName: string;
+  cityId: number | null;
+  cityName: string | null;
+  areaId: number | null;
+  areaName: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+interface StateData {
+  id: number;
+  name: string;
+  type: string; // STATE | UNION_TERRITORY
+  code?: string;
+}
+
+interface CategoryData {
+  id: number;
+  name: string;
+  displayName?: string;
+  websiteOpportunityWeight?: number;
+}
+
+interface BusinessResult {
+  id: number;
+  business_name: string;
+  full_address?: string;
+  phone_number?: string;
+  website?: string;
+  website_status: string;
+  rating?: number;
+  review_count?: number;
+  opportunity_score?: number;
+  opportunity_level?: string;
+  google_maps_url?: string;
+  category?: { name: string };
+  city?: { name: string };
+  state?: { name: string };
+  discovery_status: string;
+  crm_lead?: { id: number } | null;
+}
+
+function OpportunityBadge({ level, score }: { level?: string; score?: number }) {
+  const conf: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+    HIGH: { label: 'HIGH', color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: <Zap size={12} /> },
+    MEDIUM: { label: 'MEDIUM', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: <TrendingUp size={12} /> },
+    LOW: { label: 'LOW', color: '#6b7280', bg: 'rgba(107,114,128,0.12)', icon: <BarChart3 size={12} /> },
+    NOT_TARGET: { label: 'NOT TARGET', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', icon: <AlertCircle size={12} /> },
+  };
+  const c = conf[level || ''] || conf['LOW'];
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '4px',
+      padding: '3px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 700,
+      color: c.color, background: c.bg, border: `1px solid ${c.color}30`,
+    }}>
+      {c.icon} {c.label} {score !== undefined ? `· ${score}` : ''}
+    </span>
+  );
+}
+
+function WebsiteBadge({ status }: { status?: string }) {
+  const conf: Record<string, { label: string; color: string }> = {
+    NO_WEBSITE: { label: 'No Website', color: '#ef4444' },
+    UNKNOWN: { label: 'No Website Detected', color: '#f59e0b' },
+    WEBSITE_FOUND: { label: 'Website Found', color: '#3b82f6' },
+    WEBSITE_VERIFIED: { label: 'Website Verified', color: '#10b981' },
+    LOW_QUALITY_WEBSITE: { label: 'Poor Website', color: '#f59e0b' },
+  };
+  const c = conf[status || 'UNKNOWN'] || conf['UNKNOWN'];
+  return <span style={{ color: c.color, fontSize: '13px', fontWeight: 500 }}>{c.label}</span>;
+}
+
 export default function BusinessDiscoveryPage() {
-    const [masterData, setMasterData] = useState<any>({ countries: [], states: [], cities: [], areas: [], categories: [] });
-    
-    // Funnel State
-    const [selectedProvider, setSelectedProvider] = useState('apify');
-    const [selectedCountry, setSelectedCountry] = useState('');
-    const [selectedState, setSelectedState] = useState('');
-    const [selectedDistrict, setSelectedDistrict] = useState('');
-    const [selectedCity, setSelectedCity] = useState('');
-    const [selectedArea, setSelectedArea] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('');
-    const [maxResults, setMaxResults] = useState(20);
-    
-    const [availableDistricts, setAvailableDistricts] = useState<any[]>([]);
-    const [availableCities, setAvailableCities] = useState<any[]>([]);
-    const [availableAreas, setAvailableAreas] = useState<any[]>([]);
+  // Master data
+  const [countries, setCountries] = useState<any[]>([]);
+  const [states, setStates] = useState<StateData[]>([]);
+  const [categories, setCategories] = useState<CategoryData[]>([]);
 
-    const handleCountryChange = (val: string) => {
-        setSelectedCountry(val);
-        setSelectedState('');
-        setSelectedDistrict('');
-        setSelectedCity('');
-        setSelectedArea('');
-        setAvailableDistricts([]);
-        setAvailableCities([]);
-        setAvailableAreas([]);
+  // Funnel selection
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [selectedStateObj, setSelectedStateObj] = useState<StateData | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<LocationSuggestion | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+
+  // Location autocomplete state
+  const [locationQuery, setLocationQuery] = useState<string>('');
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const locationRef = useRef<HTMLDivElement>(null);
+  const locationDebounce = useRef<any>(null);
+
+  // Filters (collapsible)
+  const [showFilters, setShowFilters] = useState(false);
+  const [minRating, setMinRating] = useState('');
+  const [maxRating, setMaxRating] = useState('');
+  const [minReviews, setMinReviews] = useState('');
+  const [maxReviews, setMaxReviews] = useState('');
+  const [websiteFilter, setWebsiteFilter] = useState('NO_WEBSITE'); // default: no website
+  const [phoneFilter, setPhoneFilter] = useState('available'); // default: available
+  const [opportunityFilter, setOpportunityFilter] = useState('HIGH'); // default: HIGH
+  const [maxResults, setMaxResults] = useState(20);
+  const [selectedProvider, setSelectedProvider] = useState('mock');
+  const [sortBy, setSortBy] = useState('opportunity_score');
+
+  // Job state
+  const [jobId, setJobId] = useState<number | null>(null);
+  const [jobStatus, setJobStatus] = useState<string>('');
+  const [progress, setProgress] = useState<number>(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+
+  // Results
+  const [businesses, setBusinesses] = useState<BusinessResult[]>([]);
+  const [totalResults, setTotalResults] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Load master data
+  useEffect(() => {
+    fetch('/api/master')
+      .then(r => r.json())
+      .then(data => {
+        setCountries(data.countries || []);
+        setStates(data.states || []);
+        setCategories(data.categories || []);
+        // Auto-select India
+        const india = (data.countries || []).find((c: any) => c.name === 'India');
+        if (india) setSelectedCountry(String(india.id));
+      })
+      .catch(console.error);
+    setIsHydrated(true);
+  }, []);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (locationRef.current && !locationRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
     };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
-    const handleStateChange = (val: string) => {
-        setSelectedState(val);
-        setSelectedDistrict('');
-        setSelectedCity('');
-        setSelectedArea('');
-        setAvailableDistricts([]);
-        setAvailableCities([]);
-        setAvailableAreas([]);
-    };
+  // Location autocomplete — state-scoped
+  const handleLocationInput = useCallback((q: string) => {
+    setLocationQuery(q);
+    setSelectedLocation(null); // clear selection when typing
 
-    const handleDistrictChange = (val: string) => {
-        setSelectedDistrict(val);
-        setSelectedCity('');
-        setSelectedArea('');
-        setAvailableCities([]);
-        setAvailableAreas([]);
-    };
+    if (!selectedState) {
+      setLocationSuggestions([]);
+      return;
+    }
 
-    const handleCityChange = (val: string) => {
-        setSelectedCity(val);
-        setSelectedArea('');
-        setAvailableAreas([]);
-    };
+    clearTimeout(locationDebounce.current);
+    if (q.length < 1) {
+      setLocationSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
 
-    // Fetch districts when state changes
-    useEffect(() => {
-        if (!selectedState) {
-            setAvailableDistricts([]);
-            return;
-        }
-        fetch(`/api/master/location?type=district&parentId=${selectedState}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.data) {
-                    setAvailableDistricts(data.data);
-                }
-            })
-            .catch(console.error);
-    }, [selectedState]);
-
-    // Fetch cities when district changes
-    useEffect(() => {
-        if (!selectedDistrict) {
-            setAvailableCities([]);
-            return;
-        }
-        fetch(`/api/master/location?type=city&stateId=${selectedState}&districtId=${selectedDistrict}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.data) {
-                    setAvailableCities(data.data);
-                }
-            })
-            .catch(console.error);
-    }, [selectedDistrict, selectedState]);
-
-    // Fetch areas when city changes
-    useEffect(() => {
-        if (!selectedCity) {
-            setAvailableAreas([]);
-            return;
-        }
-        fetch(`/api/master/location?type=area&parentId=${selectedCity}&stateId=${selectedState}&districtId=${selectedDistrict}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.data) {
-                    setAvailableAreas(data.data);
-                }
-            })
-            .catch(console.error);
-    }, [selectedCity, selectedState, selectedDistrict]);
-    
-    // Execution State
-    const [jobId, setJobId] = useState<number | null>(null);
-    const [jobStatus, setJobStatus] = useState<string>('');
-    const [progress, setProgress] = useState<number>(0);
-    const [startTime, setStartTime] = useState<number | null>(null);
-    const [elapsedTime, setElapsedTime] = useState<number>(0);
-    
-    // Results State
-    const [businesses, setBusinesses] = useState<any[]>([]);
-
-    const [isHydrated, setIsHydrated] = useState(false);
-
-    // Initial Load: Master Data
-    useEffect(() => {
-        fetch('/api/master')
-            .then(res => res.json())
-            .then(data => setMasterData(data))
-            .catch(console.error);
-    }, []);
-
-    // Session Hydration
-    useEffect(() => {
-        const savedSession = sessionStorage.getItem('bizrank_discovery_session');
-        if (savedSession) {
-            try {
-                const parsed = JSON.parse(savedSession);
-                setSelectedProvider(parsed.selectedProvider || 'apify');
-                setSelectedCountry(parsed.selectedCountry || '');
-                setSelectedState(parsed.selectedState || '');
-                setSelectedDistrict(parsed.selectedDistrict || '');
-                setSelectedCity(parsed.selectedCity || '');
-                setSelectedArea(parsed.selectedArea || '');
-                setSelectedCategory(parsed.selectedCategory || '');
-                setMaxResults(parsed.maxResults || 20);
-                
-                setJobId(parsed.jobId || null);
-                setJobStatus(parsed.jobStatus || '');
-                setProgress(parsed.progress || 0);
-                setStartTime(parsed.startTime || null);
-                setElapsedTime(parsed.elapsedTime || 0);
-                setBusinesses(parsed.businesses || []);
-
-                // Restore Scroll
-                if (parsed.scrollPosition) {
-                    setTimeout(() => {
-                        const mainContent = document.querySelector('.main-content');
-                        if (mainContent) {
-                            mainContent.scrollTop = parsed.scrollPosition;
-                        }
-                    }, 100);
-                }
-            } catch (e) {
-                console.error("Failed to parse session", e);
-            }
-        }
-        setIsHydrated(true);
-    }, []);
-
-    // Session Synchronization
-    useEffect(() => {
-        if (!isHydrated) return;
-
-        const sessionState = {
-            selectedProvider,
-            selectedCountry,
-            selectedState,
-            selectedDistrict,
-            selectedCity,
-            selectedArea,
-            selectedCategory,
-            maxResults,
-            jobId,
-            jobStatus,
-            progress,
-            startTime,
-            elapsedTime,
-            businesses
-        };
-        
-        sessionStorage.setItem('bizrank_discovery_session', JSON.stringify(sessionState));
-    }, [isHydrated, selectedProvider, selectedCountry, selectedState, selectedDistrict, selectedCity, selectedArea, selectedCategory, maxResults, jobId, jobStatus, progress, startTime, elapsedTime, businesses]);
-
-    // Scroll Position Tracking
-    useEffect(() => {
-        if (!isHydrated) return;
-
-        const mainContent = document.querySelector('.main-content');
-        if (!mainContent) return;
-
-        let scrollTimeout: any;
-        const handleScroll = () => {
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
-                const savedSession = sessionStorage.getItem('bizrank_discovery_session');
-                if (savedSession) {
-                    const parsed = JSON.parse(savedSession);
-                    parsed.scrollPosition = mainContent.scrollTop;
-                    sessionStorage.setItem('bizrank_discovery_session', JSON.stringify(parsed));
-                }
-            }, 100);
-        };
-
-        mainContent.addEventListener('scroll', handleScroll);
-        return () => mainContent.removeEventListener('scroll', handleScroll);
-    }, [isHydrated]);
-
-    const handleClearSession = () => {
-        sessionStorage.removeItem('bizrank_discovery_session');
-        setSelectedProvider('apify');
-        setSelectedCountry('');
-        setSelectedState('');
-        setSelectedDistrict('');
-        setSelectedCity('');
-        setSelectedArea('');
-        setSelectedCategory('');
-        setAvailableDistricts([]);
-        setAvailableCities([]);
-        setAvailableAreas([]);
-        setMaxResults(20);
-        setJobId(null);
-        setJobStatus('');
-        setProgress(0);
-        setStartTime(null);
-        setElapsedTime(0);
-        setBusinesses([]);
-    };
-
-    const availableStates = masterData.states.filter((s: any) => !selectedCountry || s.countryId === parseInt(selectedCountry));
-
-    const handleStartSearch = async () => {
-        if (!selectedCategory || !selectedCity) {
-            alert('Please select at least a City and Category.');
-            return;
-        }
-
-        const payload = {
-            provider: selectedProvider,
-            country: masterData.countries.find((c: any) => c.id === parseInt(selectedCountry))?.name || '',
-            state: masterData.states.find((s: any) => s.id === parseInt(selectedState))?.name || '',
-            district: availableDistricts.find((d: any) => d.id === parseInt(selectedDistrict))?.name || '',
-            city: availableCities.find((c: any) => c.id === parseInt(selectedCity))?.name || '',
-            area: availableAreas.find((a: any) => a.id === parseInt(selectedArea))?.name || '',
-            category: masterData.categories.find((c: any) => c.id === parseInt(selectedCategory))?.name || '',
-            countryId: parseInt(selectedCountry) || null,
-            stateId: parseInt(selectedState) || null,
-            districtId: parseInt(selectedDistrict) || null,
-            cityId: parseInt(selectedCity) || null,
-            areaId: parseInt(selectedArea) || null,
-            categoryId: parseInt(selectedCategory) || null,
-            maxResults
-        };
-
-        const res = await fetch('/api/jobs', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
+    locationDebounce.current = setTimeout(async () => {
+      setLocationLoading(true);
+      try {
+        const res = await fetch(`/api/locations/search?q=${encodeURIComponent(q)}&stateId=${selectedState}&limit=8`);
         const data = await res.json();
-        
-        if (data.jobId) {
-            setJobId(data.jobId);
-            setJobStatus('Running');
-            setProgress(0);
-            setStartTime(Date.now());
-            setElapsedTime(0);
-            setBusinesses([]); 
-            
-            // Auto reset scroll to top on new search
-            const mainContent = document.querySelector('.main-content');
-            if (mainContent) mainContent.scrollTop = 0;
-        } else if (data.error) {
-            alert(`Error: ${data.error}`);
-        }
+        setLocationSuggestions(data.data || []);
+        setShowSuggestions(true);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLocationLoading(false);
+      }
+    }, 250);
+  }, [selectedState]);
+
+  const handleLocationSelect = (loc: LocationSuggestion) => {
+    setSelectedLocation(loc);
+    setLocationQuery(loc.displayName);
+    setShowSuggestions(false);
+  };
+
+  const handleStateChange = (val: string) => {
+    setSelectedState(val);
+    const stateObj = states.find(s => String(s.id) === val) || null;
+    setSelectedStateObj(stateObj);
+    // Clear location when state changes
+    setSelectedLocation(null);
+    setLocationQuery('');
+    setLocationSuggestions([]);
+  };
+
+  const handleStartSearch = async () => {
+    if (!selectedState) {
+      alert('Please select a State first.');
+      return;
+    }
+    if (!selectedCategory) {
+      alert('Please select a Business Category.');
+      return;
+    }
+
+    const stateObj = states.find(s => String(s.id) === selectedState);
+    const categoryObj = categories.find(c => String(c.id) === selectedCategory);
+    const countryObj = countries.find(c => String(c.id) === selectedCountry);
+
+    const payload = {
+      provider: selectedProvider,
+      country: countryObj?.name || 'India',
+      state: stateObj?.name || '',
+      city: selectedLocation?.cityName || '',
+      area: selectedLocation?.areaName || '',
+      locationName: selectedLocation?.name || '',
+      locationLat: selectedLocation?.latitude || null,
+      locationLng: selectedLocation?.longitude || null,
+      radiusKm: 5.0,
+      category: categoryObj?.name || '',
+      countryId: parseInt(selectedCountry) || null,
+      stateId: parseInt(selectedState) || null,
+      cityId: selectedLocation?.cityId || null,
+      areaId: selectedLocation?.areaId || null,
+      categoryId: parseInt(selectedCategory) || null,
+      maxResults,
     };
 
-    useEffect(() => {
-        if (jobStatus === 'Running' && startTime) {
-            const timer = setInterval(() => {
-                setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
-            }, 1000);
-            return () => clearInterval(timer);
-        }
-    }, [jobStatus, startTime]);
+    const res = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
 
-    useEffect(() => {
-        if (!jobId || jobStatus === 'Completed' || jobStatus === 'Failed') return;
+    if (data.jobId) {
+      setJobId(data.jobId);
+      setJobStatus('Running');
+      setProgress(0);
+      setStartTime(Date.now());
+      setElapsedTime(0);
+      setBusinesses([]);
+      setTotalResults(0);
+      setCurrentPage(1);
+    } else {
+      alert(`Error: ${data.error}`);
+    }
+  };
 
-        const interval = setInterval(async () => {
-            const res = await fetch(`/api/jobs/${jobId}`);
-            const data = await res.json();
-            
-            setJobStatus(data.status);
-            setProgress(data.progress || 0);
+  // Elapsed time counter
+  useEffect(() => {
+    if (jobStatus === 'Running' && startTime) {
+      const t = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTime) / 1000)), 1000);
+      return () => clearInterval(t);
+    }
+  }, [jobStatus, startTime]);
 
-            if (data.status === 'Completed') {
-                clearInterval(interval);
-                fetchResults();
-            }
-        }, 3000);
+  // Poll job status
+  useEffect(() => {
+    if (!jobId || jobStatus === 'Completed' || jobStatus === 'Failed') return;
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      const data = await res.json();
+      setJobStatus(data.status);
+      setProgress(data.progress || 0);
+      if (data.status === 'Completed') {
+        clearInterval(interval);
+        fetchResults(1);
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [jobId, jobStatus]);
 
-        return () => clearInterval(interval);
-    }, [jobId, jobStatus]);
+  const fetchResults = async (page: number) => {
+    if (!jobId) return;
+    const params = new URLSearchParams({
+      jobId: String(jobId),
+      page: String(page),
+      limit: '20',
+      sort: sortBy,
+    });
+    if (websiteFilter && websiteFilter !== 'all') params.set('websiteStatus', websiteFilter);
+    if (phoneFilter === 'available') params.set('hasPhone', 'true');
+    if (opportunityFilter && opportunityFilter !== 'all') params.set('opportunityLevel', opportunityFilter);
+    if (minRating) params.set('minRating', minRating);
+    if (maxRating) params.set('maxRating', maxRating);
+    if (minReviews) params.set('minReviews', minReviews);
+    if (maxReviews) params.set('maxReviews', maxReviews);
 
-    const fetchResults = async () => {
-        if (!jobId) return;
-        const res = await fetch(`/api/businesses?jobId=${jobId}&limit=100`);
-        const data = await res.json();
-        if (data.data) {
-            setBusinesses(data.data);
-        }
-    };
+    const res = await fetch(`/api/businesses?${params.toString()}`);
+    const data = await res.json();
+    if (data.data) {
+      setBusinesses(data.data);
+      setTotalResults(data.pagination?.total || 0);
+      setCurrentPage(data.pagination?.page || 1);
+      setTotalPages(data.pagination?.totalPages || 1);
+    }
+  };
 
-    const handleQualify = async (id: number) => {
-        try {
-            const res = await fetch(`/api/businesses/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ discovery_status: 'Qualified' })
-            });
-            if (res.ok) {
-                setBusinesses(businesses.map(b => b.id === id ? { ...b, discovery_status: 'Qualified' } : b));
-            }
-        } catch (error) {
-            console.error('Failed to qualify business', error);
-        }
-    };
+  const handleAddToCRM = async (businessId: number) => {
+    try {
+      const res = await fetch('/api/crm/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBusinesses(prev => prev.map(b =>
+          b.id === businessId ? { ...b, discovery_status: 'Qualified', crm_lead: { id: data.leadId } } : b
+        ));
+      } else {
+        alert(`CRM Error: ${data.error}`);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
-    if (!isHydrated) return null; // Avoid flash of unhydrated state
+  const handleClear = () => {
+    setJobId(null);
+    setJobStatus('');
+    setProgress(0);
+    setStartTime(null);
+    setElapsedTime(0);
+    setBusinesses([]);
+    setTotalResults(0);
+  };
 
-    return (
-        <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            style={{ paddingBottom: '40px' }}
-        >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Search size={28} className="text-gradient" />
-                    <h1 className="text-gradient" style={{ margin: 0 }}>Business Discovery</h1>
-                </div>
-                
-                {jobId && (
-                    <button 
-                        onClick={handleClearSession}
-                        className="btn-icon ripple"
-                        title="Clear Results & Start New Search"
-                    >
-                        <RotateCcw size={16} /> New Search
-                    </button>
-                )}
-            </div>
-            
-            <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>
-                Execute highly targeted scraping jobs. Your session and scroll position are automatically saved.
+  const availableStates = selectedCountry
+    ? states.filter(s => {
+        // States come from DB which is already country-filtered via seed, just show all
+        return true;
+      })
+    : states;
+
+  if (!isHydrated) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      style={{ paddingBottom: '60px' }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Building2 size={28} className="text-gradient" />
+          <div>
+            <h1 className="text-gradient" style={{ margin: 0 }}>Business Discovery</h1>
+            <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px' }}>
+              Find businesses that are strong website-development leads
             </p>
+          </div>
+        </div>
+        {jobId && (
+          <button onClick={handleClear} className="btn-icon ripple" title="New Search">
+            <RotateCcw size={16} /> New Search
+          </button>
+        )}
+      </div>
 
-            {/* TOP FUNNEL: Search Execution Form */}
-            <div className="glass-panel hover-lift" style={{ marginBottom: '32px' }}>
-                <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <TargetIcon size={18} /> Define Discovery Target
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', alignItems: 'end' }}>
-                    
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Country</label>
-                        <select className="select-input" value={selectedCountry} onChange={e => handleCountryChange(e.target.value)}>
-                            <option value="">Any Country</option>
-                            {masterData.countries.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </div>
+      {/* SEARCH FORM */}
+      <div className="glass-panel hover-lift" style={{ marginBottom: '24px' }}>
+        <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Target size={18} /> Define Discovery Target
+        </h3>
 
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>State/Province</label>
-                        <select className="select-input" value={selectedState} onChange={e => handleStateChange(e.target.value)}>
-                            <option value="">Any State</option>
-                            {availableStates.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                    </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', alignItems: 'start' }}>
 
-                    {selectedState && (
-                        <div>
-                            <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>District</label>
-                            <select className="select-input" value={selectedDistrict} onChange={e => handleDistrictChange(e.target.value)}>
-                                <option value="">Select District</option>
-                                {availableDistricts.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                            </select>
-                        </div>
-                    )}
+          {/* Country (fixed: India) */}
+          <div>
+            <label style={labelStyle}>Country</label>
+            <select className="select-input" value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}>
+              <option value="">Select Country</option>
+              {countries.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
 
-                    {selectedDistrict && (
-                        <div>
-                            <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>City *</label>
-                            <select className="select-input" value={selectedCity} onChange={e => handleCityChange(e.target.value)}>
-                                <option value="">Select City</option>
-                                {availableCities.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                        </div>
-                    )}
+          {/* State */}
+          <div>
+            <label style={labelStyle}>State / Union Territory <span style={{ color: 'var(--accent-primary)' }}>*</span></label>
+            <select className="select-input" value={selectedState} onChange={e => handleStateChange(e.target.value)}>
+              <option value="">Select State</option>
+              {/* States */}
+              <optgroup label="States">
+                {availableStates.filter(s => s.type === 'STATE').map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </optgroup>
+              {/* Union Territories */}
+              <optgroup label="Union Territories">
+                {availableStates.filter(s => s.type === 'UNION_TERRITORY').map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
 
-                    {selectedCity && (
-                        <div>
-                            <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Area/Locality</label>
-                            <select className="select-input" value={selectedArea} onChange={e => setSelectedArea(e.target.value)}>
-                                <option value="">Any Area</option>
-                                {availableAreas.length === 0 ? (
-                                    <option value="" disabled>No areas found</option>
-                                ) : (
-                                    availableAreas.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)
-                                )}
-                            </select>
-                        </div>
-                    )}
-
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Category *</label>
-                        <select className="select-input" value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
-                            <option value="">Select Category</option>
-                            {masterData.categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Max Results</label>
-                        <input type="number" className="select-input" value={maxResults} onChange={e => setMaxResults(parseInt(e.target.value) || 20)} min="1" max="500" />
-                    </div>
-
-                    <div style={{ gridColumn: '1 / -1', marginTop: '16px', marginBottom: '8px' }}>
-                        <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Business Data Provider</label>
-                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                                <input type="radio" name="provider" value="apify" checked={selectedProvider === 'apify'} onChange={e => setSelectedProvider(e.target.value)} />
-                                <span>Apify (Default)</span>
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                                <input type="radio" name="provider" value="google_places" checked={selectedProvider === 'google_places'} onChange={e => setSelectedProvider(e.target.value)} />
-                                <span>Google Places</span>
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                                <input type="radio" name="provider" value="mock" checked={selectedProvider === 'mock'} onChange={e => setSelectedProvider(e.target.value)} />
-                                <span>Mock Provider</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div style={{ gridColumn: '1 / -1' }}>
-                        <button 
-                            className={`ripple hover-lift ${jobStatus !== 'Running' ? 'btn-primary' : ''}`}
-                            onClick={handleStartSearch} 
-                            disabled={jobStatus === 'Running'}
-                            style={{ 
-                                width: '100%', 
-                                padding: '10px 16px', 
-                                background: jobStatus === 'Running' ? 'var(--panel-bg)' : 'var(--accent-primary)',
-                                color: jobStatus === 'Running' ? 'var(--text-muted)' : 'white',
-                                border: jobStatus === 'Running' ? '1px solid var(--border-color)' : 'none',
-                                borderRadius: '8px',
-                                cursor: jobStatus === 'Running' ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '8px',
-                                fontWeight: 600
-                            }}
-                        >
-                            {jobStatus === 'Running' ? <Loader2 size={18} className="spin" /> : <PlayCircle size={18} />}
-                            {jobStatus === 'Running' ? 'Executing...' : 'Start Search'}
-                        </button>
-                    </div>
-                </div>
+          {/* Location / Area (autocomplete) */}
+          <div ref={locationRef} style={{ position: 'relative' }}>
+            <label style={labelStyle}>
+              Location / Area
+              {!selectedState && <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}> (select state first)</span>}
+            </label>
+            <div style={{ position: 'relative' }}>
+              <MapPin size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="select-input"
+                style={{ paddingLeft: '30px' }}
+                placeholder={selectedState ? `Search in ${selectedStateObj?.name || 'state'}...` : 'Select state first'}
+                value={locationQuery}
+                disabled={!selectedState}
+                onChange={e => handleLocationInput(e.target.value)}
+                onFocus={() => locationSuggestions.length > 0 && setShowSuggestions(true)}
+              />
+              {locationLoading && (
+                <Loader2 size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} className="spin" />
+              )}
             </div>
-
-            {/* PROGRESS CARD */}
+            {/* Suggestions dropdown */}
             <AnimatePresence>
-                {jobId && (
-                    <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="glass-panel hover-lift" style={{ marginBottom: '32px' }}
+              {showSuggestions && locationSuggestions.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                    background: 'var(--panel-bg)', border: '1px solid var(--border-color)',
+                    borderRadius: '8px', marginTop: '4px', overflow: 'hidden',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                  }}
+                >
+                  {locationSuggestions.map(loc => (
+                    <button
+                      key={loc.id}
+                      onClick={() => handleLocationSelect(loc)}
+                      style={{
+                        width: '100%', textAlign: 'left', padding: '10px 14px',
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        borderBottom: '1px solid rgba(255,255,255,0.05)',
+                        color: 'var(--text-main)',
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        fontSize: '13px',
+                      }}
+                      onMouseOver={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                      onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
                     >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                                Job #{jobId} Status
-                                {jobStatus === 'Running' && <span className="badge badge-priority-b">Running</span>}
-                                {jobStatus === 'Completed' && <span className="badge badge-priority-c">Completed</span>}
-                                {jobStatus === 'Failed' && <span className="badge badge-priority-a">Failed</span>}
-                            </h3>
-                            <div style={{ display: 'flex', gap: '24px', color: 'var(--text-muted)', fontSize: '14px' }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Clock size={16} /> {Math.floor(elapsedTime / 60)}m {elapsedTime % 60}s
-                                </span>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <MapPin size={16} /> Businesses Found: {jobStatus === 'Completed' ? businesses.length : '-'}
-                                </span>
-                            </div>
-                        </div>
-                        
-                        <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{ 
-                                width: `${progress}%`, 
-                                height: '100%', 
-                                background: jobStatus === 'Failed' ? 'var(--status-lost)' : 'var(--status-won)', 
-                                transition: 'width 0.5s ease' 
-                            }} />
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* ISOLATED CURRENT RESULTS */}
-            {jobStatus === 'Running' && (
-                <div className="glass-panel">
-                    <h3 style={{ marginBottom: '20px' }}>Discovering Businesses...</h3>
-                    <div className="card-grid">
-                        <SkeletonCard />
-                        <SkeletonCard />
-                        <SkeletonCard />
+                      <MapPin size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontWeight: 500 }}>{loc.name}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{loc.displayName} · {loc.type}</div>
+                      </div>
+                    </button>
+                  ))}
+                  {locationSuggestions.length === 0 && locationQuery.length > 1 && (
+                    <div style={{ padding: '12px 14px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                      No matching locations in {selectedStateObj?.name}
                     </div>
-                </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {selectedLocation && (
+              <div style={{ fontSize: '11px', color: 'var(--accent-primary)', marginTop: '4px' }}>
+                ✓ {selectedLocation.displayName}
+                {selectedLocation.latitude && ` (${selectedLocation.latitude.toFixed(4)}, ${selectedLocation.longitude?.toFixed(4)})`}
+              </div>
             )}
+          </div>
 
-            {jobStatus === 'Completed' && (
-                <div className="glass-panel">
-                    <h3 style={{ marginBottom: '20px' }}>Current Search Results</h3>
-                    
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="card-grid">
-                        {businesses.map(b => (
-                            <motion.div variants={cardVariants} key={b.id} className="card hover-lift">
-                                {/* HEADER */}
-                                <div className="card-header" style={{ flexDirection: 'column', gap: '12px', marginBottom: 0 }}>
-                                    <div>
-                                        <div className="card-title">{b.business_name}</div>
-                                        <div className="card-subtitle" style={{ fontSize: '14px', marginBottom: '8px' }}>
-                                            <Target size={14} /> {b.google_category || b.category?.name || 'N/A'}
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)', fontWeight: 500 }}>
-                                            <Star size={16} color="#f59e0b" fill="#f59e0b" />
-                                            <span>{b.rating || 'N/A'} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({b.review_count || 0} reviews)</span></span>
-                                        </div>
-                                        <div className="card-scores">
-                                            <span className={`badge ${b.opportunity_score >= 70 ? 'badge-priority-b' : 'badge-priority-a'}`}>
-                                                Opportunity: {b.opportunity_score || 0}
-                                            </span>
-                                            <span className={`badge ${b.ai_score >= 70 ? 'badge-priority-c' : 'badge-priority-a'}`}>
-                                                AI Score: {b.ai_score || 0}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
+          {/* Category */}
+          <div>
+            <label style={labelStyle}>Business Category <span style={{ color: 'var(--accent-primary)' }}>*</span></label>
+            <select className="select-input" value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
+              <option value="">Select Category</option>
+              {categories.map(c => (
+                <option key={c.id} value={c.id}>{c.displayName || c.name}</option>
+              ))}
+            </select>
+          </div>
 
-                                {/* BODY */}
-                                <div className="card-body" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <div className="card-detail-row" style={{ marginBottom: '12px' }}>
-                                        <MapPin size={16} className="card-detail-icon" />
-                                        <span style={{ whiteSpace: 'normal', wordWrap: 'break-word', lineHeight: 1.5 }}>
-                                            {b.full_address || b.city?.name || 'N/A'}
-                                        </span>
-                                    </div>
-                                    {b.phone_number && (
-                                        <div className="card-detail-row" style={{ marginBottom: '12px' }}>
-                                            <Phone size={16} className="card-detail-icon" />
-                                            <span>{b.phone_number}</span>
-                                        </div>
-                                    )}
-                                    <div className="card-detail-row" style={{ marginBottom: '12px' }}>
-                                        <Globe size={16} className="card-detail-icon" />
-                                        <span style={{ color: b.website ? 'var(--status-won)' : 'var(--text-muted)', fontWeight: 500 }}>
-                                            {b.website ? 'Website Available' : 'Website Missing'}
-                                        </span>
-                                    </div>
-                                </div>
+        </div>
 
-                                {/* FOOTER */}
-                                <div className="card-actions" style={{ flexWrap: 'wrap' }}>
-                                    {b.google_maps_url && (
-                                        <a href={b.google_maps_url} target="_blank" rel="noreferrer" className="btn-icon ripple">
-                                            <MapPin size={16} /> Open Maps
-                                        </a>
-                                    )}
-                                    {b.website ? (
-                                        <a href={b.website} target="_blank" rel="noreferrer" className="btn-icon ripple">
-                                            <Globe size={16} /> Visit Website
-                                        </a>
-                                    ) : (
-                                        <button className="btn-icon ripple" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                                            <Globe size={16} /> No Website Available
-                                        </button>
-                                    )}
-                                    <Link href={`/business/${b.id}`} className="btn-icon ripple">
-                                        <ExternalLink size={16} /> View Details
-                                    </Link>
-                                    <button 
-                                        onClick={() => handleQualify(b.id)}
-                                        disabled={b.discovery_status === 'Qualified'}
-                                        className={`btn-icon ripple ${b.discovery_status === 'Qualified' ? '' : 'primary'}`}
-                                        style={{ cursor: b.discovery_status === 'Qualified' ? 'not-allowed' : 'pointer', opacity: b.discovery_status === 'Qualified' ? 0.5 : 1 }}
-                                    >
-                                        {b.discovery_status === 'Qualified' ? <CheckCircle2 size={16} /> : <Plus size={16} />} 
-                                        {b.discovery_status === 'Qualified' ? "Already Qualified" : "Add to CRM"}
-                                    </button>
-                                </div>
-                            </motion.div>
-                        ))}
-                        {businesses.length === 0 && (
-                            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                No businesses found in this collection.
-                            </div>
-                        )}
-                    </motion.div>
+        {/* Filters Toggle */}
+        <div style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px' }}>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
+          >
+            <Filter size={14} /> Opportunity Filters
+            {showFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          <AnimatePresence>
+            {showFilters && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginTop: '16px' }}>
+                  {/* Rating Range */}
+                  <div>
+                    <label style={labelStyle}>Min Rating</label>
+                    <input type="number" className="select-input" placeholder="e.g. 3.5" min="0" max="5" step="0.5" value={minRating} onChange={e => setMinRating(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Max Rating</label>
+                    <input type="number" className="select-input" placeholder="e.g. 5.0" min="0" max="5" step="0.5" value={maxRating} onChange={e => setMaxRating(e.target.value)} />
+                  </div>
+                  {/* Reviews Range */}
+                  <div>
+                    <label style={labelStyle}>Min Reviews</label>
+                    <input type="number" className="select-input" placeholder="e.g. 10" min="0" value={minReviews} onChange={e => setMinReviews(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Max Reviews</label>
+                    <input type="number" className="select-input" placeholder="e.g. 500" min="0" value={maxReviews} onChange={e => setMaxReviews(e.target.value)} />
+                  </div>
+                  {/* Website */}
+                  <div>
+                    <label style={labelStyle}>Website Status</label>
+                    <select className="select-input" value={websiteFilter} onChange={e => setWebsiteFilter(e.target.value)}>
+                      <option value="NO_WEBSITE">No Website</option>
+                      <option value="UNKNOWN">No Website Detected</option>
+                      <option value="LOW_QUALITY_WEBSITE">Poor Website</option>
+                      <option value="">All</option>
+                    </select>
+                  </div>
+                  {/* Phone */}
+                  <div>
+                    <label style={labelStyle}>Phone</label>
+                    <select className="select-input" value={phoneFilter} onChange={e => setPhoneFilter(e.target.value)}>
+                      <option value="available">Available</option>
+                      <option value="">All</option>
+                    </select>
+                  </div>
+                  {/* Opportunity */}
+                  <div>
+                    <label style={labelStyle}>Opportunity Level</label>
+                    <select className="select-input" value={opportunityFilter} onChange={e => setOpportunityFilter(e.target.value)}>
+                      <option value="HIGH">High</option>
+                      <option value="MEDIUM">Medium</option>
+                      <option value="LOW">Low</option>
+                      <option value="">All</option>
+                    </select>
+                  </div>
+                  {/* Sort */}
+                  <div>
+                    <label style={labelStyle}>Sort By</label>
+                    <select className="select-input" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                      <option value="opportunity_score">Opportunity Score</option>
+                      <option value="rating">Rating</option>
+                      <option value="review_count">Reviews</option>
+                      <option value="collection_date">Newest</option>
+                    </select>
+                  </div>
+                  {/* Max Results */}
+                  <div>
+                    <label style={labelStyle}>Max Results</label>
+                    <input type="number" className="select-input" value={maxResults} min="1" max="200" onChange={e => setMaxResults(parseInt(e.target.value) || 20)} />
+                  </div>
                 </div>
+
+                {/* Provider */}
+                <div style={{ marginTop: '12px' }}>
+                  <label style={labelStyle}>Provider</label>
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    {[{ v: 'mock', l: 'Mock (Demo)' }, { v: 'apify', l: 'Apify' }, { v: 'google_places', l: 'Google Places' }].map(p => (
+                      <label key={p.v} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
+                        <input type="radio" name="provider" value={p.v} checked={selectedProvider === p.v} onChange={() => setSelectedProvider(p.v)} />
+                        {p.l}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
             )}
-            
-            <style jsx>{`
-                .select-input {
-                    width: 100%;
-                    padding: 10px;
-                    background: rgba(0, 0, 0, 0.2);
-                    color: var(--text-main);
-                    border: 1px solid var(--border-color);
-                    border-radius: 8px;
-                    outline: none;
-                    transition: border-color 0.2s ease;
-                }
-                .select-input:focus {
-                    border-color: var(--accent-primary);
-                }
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-                .spin {
-                    animation: spin 1s linear infinite;
-                }
-            `}</style>
-        </motion.div>
-    );
+          </AnimatePresence>
+        </div>
+
+        {/* Search Button */}
+        <div style={{ marginTop: '20px' }}>
+          <button
+            className={`ripple hover-lift ${jobStatus !== 'Running' ? 'btn-primary' : ''}`}
+            onClick={handleStartSearch}
+            disabled={jobStatus === 'Running'}
+            style={{
+              width: '100%', padding: '12px 16px',
+              background: jobStatus === 'Running' ? 'var(--panel-bg)' : 'var(--accent-primary)',
+              color: jobStatus === 'Running' ? 'var(--text-muted)' : 'white',
+              border: jobStatus === 'Running' ? '1px solid var(--border-color)' : 'none',
+              borderRadius: '8px',
+              cursor: jobStatus === 'Running' ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              fontWeight: 700, fontSize: '15px',
+            }}
+          >
+            {jobStatus === 'Running' ? <Loader2 size={18} className="spin" /> : <Search size={18} />}
+            {jobStatus === 'Running' ? 'Searching Businesses...' : '🔍 Search Businesses'}
+          </button>
+        </div>
+
+        {/* Location-state validation hint */}
+        {selectedState && !selectedLocation && (
+          <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>
+            Tip: Selecting a Location / Area helps find more precise results.
+            Without one, the entire {selectedStateObj?.name} will be searched.
+          </div>
+        )}
+      </div>
+
+      {/* JOB PROGRESS */}
+      <AnimatePresence>
+        {jobId && jobStatus && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="glass-panel"
+            style={{ marginBottom: '24px' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                Job #{jobId}
+                {jobStatus === 'Running' && <span className="badge badge-priority-b">Running</span>}
+                {jobStatus === 'Completed' && <span className="badge badge-priority-c">Completed</span>}
+                {jobStatus === 'Failed' && <span className="badge badge-priority-a">Failed</span>}
+              </h4>
+              <div style={{ display: 'flex', gap: '16px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Clock size={14} /> {Math.floor(elapsedTime / 60)}m {elapsedTime % 60}s
+                </span>
+                {jobStatus === 'Completed' && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Building2 size={14} /> {totalResults} businesses
+                  </span>
+                )}
+              </div>
+            </div>
+            <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+              <motion.div
+                style={{ height: '100%', background: jobStatus === 'Failed' ? 'var(--status-lost)' : 'var(--status-won)', borderRadius: '3px' }}
+                initial={{ width: '0%' }}
+                animate={{ width: `${jobStatus === 'Completed' ? 100 : progress}%` }}
+                transition={{ duration: 0.5 }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* SKELETON LOADING */}
+      {jobStatus === 'Running' && (
+        <div className="glass-panel">
+          <h3 style={{ marginBottom: '20px' }}>Discovering Businesses...</h3>
+          <div className="card-grid">
+            <SkeletonCard /><SkeletonCard /><SkeletonCard />
+          </div>
+        </div>
+      )}
+
+      {/* RESULTS */}
+      {jobStatus === 'Completed' && (
+        <div className="glass-panel">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+            <h3 style={{ margin: 0 }}>
+              Results
+              {totalResults > 0 && (
+                <span style={{ marginLeft: '10px', fontSize: '14px', color: 'var(--text-muted)', fontWeight: 400 }}>
+                  {totalResults} business{totalResults !== 1 ? 'es' : ''} found
+                </span>
+              )}
+            </h3>
+            {jobStatus === 'Completed' && totalResults > 0 && (
+              <button
+                onClick={() => fetchResults(currentPage)}
+                className="btn-icon ripple"
+                style={{ fontSize: '13px' }}
+              >
+                <Filter size={14} /> Apply Filters
+              </button>
+            )}
+          </div>
+
+          <motion.div variants={containerVariants} initial="hidden" animate="show" className="card-grid">
+            {businesses.map(b => (
+              <motion.div variants={cardVariants} key={b.id} className="card hover-lift">
+                {/* Card Header */}
+                <div style={{ marginBottom: '12px' }}>
+                  <div className="card-title" style={{ marginBottom: '4px' }}>{b.business_name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', marginBottom: '8px' }}>
+                    <Target size={13} /> {b.category?.name || 'Unknown Category'}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                    <OpportunityBadge level={b.opportunity_level} score={b.opportunity_score} />
+                    {b.rating && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                        <Star size={12} color="#f59e0b" fill="#f59e0b" />
+                        {b.rating.toFixed(1)} ({b.review_count || 0})
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Card Body */}
+                <div style={{ paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  {(b.full_address || b.city?.name) && (
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                      <MapPin size={14} style={{ flexShrink: 0, marginTop: '1px' }} />
+                      <span style={{ lineHeight: 1.4 }}>{b.full_address || `${b.city?.name}, ${b.state?.name}`}</span>
+                    </div>
+                  )}
+                  {b.phone_number && (
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                      <Phone size={14} style={{ flexShrink: 0 }} />
+                      <span>{b.phone_number}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '0', fontSize: '13px' }}>
+                    <Globe size={14} style={{ flexShrink: 0, color: 'var(--text-muted)', marginTop: '1px' }} />
+                    <WebsiteBadge status={b.website_status} />
+                  </div>
+                </div>
+
+                {/* Card Actions */}
+                <div className="card-actions" style={{ flexWrap: 'wrap', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <Link href={`/business/${b.id}`} className="btn-icon ripple">
+                    <ExternalLink size={14} /> View
+                  </Link>
+                  {b.crm_lead ? (
+                    <Link href={`/crm/leads/${b.crm_lead.id}`} className="btn-icon ripple" style={{ color: 'var(--accent-primary)' }}>
+                      <CheckCircle2 size={14} /> In CRM
+                    </Link>
+                  ) : (
+                    <button
+                      onClick={() => handleAddToCRM(b.id)}
+                      className="btn-icon ripple primary"
+                    >
+                      <Plus size={14} /> Add to CRM
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+
+            {businesses.length === 0 && (
+              <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Building2 size={32} style={{ marginBottom: '12px', opacity: 0.3 }} />
+                <div>No businesses match your current filters.</div>
+                <div style={{ fontSize: '13px', marginTop: '4px' }}>Try adjusting the filters or changing the opportunity level.</div>
+              </div>
+            )}
+          </motion.div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(pg => (
+                <button
+                  key={pg}
+                  onClick={() => fetchResults(pg)}
+                  className="btn-icon ripple"
+                  style={{
+                    background: pg === currentPage ? 'var(--accent-primary)' : 'transparent',
+                    color: pg === currentPage ? 'white' : 'var(--text-muted)',
+                    border: pg === currentPage ? 'none' : '1px solid var(--border-color)',
+                    minWidth: '36px',
+                  }}
+                >
+                  {pg}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <style jsx>{`
+        .select-input {
+          width: 100%;
+          padding: 10px;
+          background: rgba(0, 0, 0, 0.2);
+          color: var(--text-main);
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          outline: none;
+          transition: border-color 0.2s ease;
+          font-size: 14px;
+        }
+        .select-input:focus {
+          border-color: var(--accent-primary);
+        }
+        .select-input:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .spin { animation: spin 1s linear infinite; }
+      `}</style>
+    </motion.div>
+  );
 }
 
-function TargetIcon(props: any) {
-    return <Target {...props} />
-}
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '12px',
+  color: 'var(--text-muted)',
+  marginBottom: '6px',
+  fontWeight: 500,
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+};

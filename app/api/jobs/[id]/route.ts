@@ -3,6 +3,9 @@ import { prisma } from '../../../../lib/prisma';
 import { ProviderFactory } from '../../../../services/providerFactory';
 import { DataProcessor } from '../../../../services/processor';
 import { WebsiteAuditor } from '../../../../services/auditor';
+import { OpportunityScorer } from '../../../../services/opportunityScorer';
+import { normalizeCategoryName } from '../../../../services/categoryNormalizer';
+import type { WebsiteStatus } from '../../../../config/opportunityConfig';
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
     const params = await context.params;
@@ -75,13 +78,21 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                   }) 
                 : [];
 
-            const categoryMap = new Map(categories.map(c => [c.name.toLowerCase(), c.id]));
+            const categoryMap = new Map(categories.map(c => [c.name.toLowerCase(), { id: c.id, weight: c.websiteOpportunityWeight, eligible: c.opportunityEligible }]));
             const cityMap = new Map(cities.map(c => [c.name.toLowerCase(), c.id]));
             const stateMap = new Map(states.map(s => [s.name.toLowerCase(), s.id]));
             const countryMap = new Map(countries.map(c => [c.name.toLowerCase(), c.id]));
             const countryCodeMap = new Map(countries.filter(c => c.code).map(c => [c.code!.toLowerCase(), c.id]));
 
-            const getCatId = (name: string | null) => name ? categoryMap.get(name.toLowerCase()) || null : null;
+            const getCatInfo = (name: string | null) => {
+                if (!name) return null;
+                // First try direct match, then normalized via categoryNormalizer
+                const direct = categoryMap.get(name.toLowerCase());
+                if (direct) return direct;
+                const normalized = normalizeCategoryName(name);
+                return normalized ? categoryMap.get(normalized.toLowerCase()) || null : null;
+            };
+            const getCatId = (name: string | null) => getCatInfo(name)?.id || null;
             const getCityId = (name: string | null) => name ? cityMap.get(name.toLowerCase()) || null : null;
             const getStateId = (name: string | null) => name ? stateMap.get(name.toLowerCase()) || null : null;
             const getCountryId = (code: string | null) => {
@@ -92,14 +103,44 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
             for (const biz of audited) {
                 const aiScore = biz.ai_score || 0;
-                const oppScore = biz.website_exists ? (100 - aiScore) : 90; // High opportunity if no website or bad website
                 
+                // Resolve geographic and category IDs
                 const categoryId = job.categoryId || getCatId(biz.category);
+                const catInfo = job.categoryId
+                    ? getCatInfo(categories.find(c => c.id === job.categoryId)?.name || null)
+                    : getCatInfo(biz.category);
                 const cityId = job.cityId || getCityId(biz.city);
                 const stateId = job.stateId || getStateId(biz.state);
                 const countryId = job.countryId || getCountryId(biz.country);
                 const areaId = job.areaId || null;
                 const districtId = job.districtId || null;
+
+                // Determine website status
+                let websiteStatus: WebsiteStatus = 'UNKNOWN';
+                if (biz.website_exists && biz.website) {
+                    if (aiScore >= 60) websiteStatus = 'WEBSITE_VERIFIED';
+                    else if (aiScore > 0) websiteStatus = 'LOW_QUALITY_WEBSITE';
+                    else websiteStatus = 'WEBSITE_FOUND';
+                } else if (!biz.website) {
+                    websiteStatus = 'NO_WEBSITE';
+                }
+
+                // Compute opportunity score
+                const opportunityResult = OpportunityScorer.score({
+                    websiteStatus,
+                    hasPhone: !!biz.phone_number,
+                    rating: biz.rating || null,
+                    reviewCount: biz.review_count || null,
+                    hasInstagram: !!(biz as any).instagram_url,
+                    hasFacebook: !!(biz as any).facebook_url,
+                    businessStatus: (biz as any).business_status || null,
+                    categoryWeight: catInfo?.weight ?? 0.5,
+                    opportunityEligible: catInfo?.eligible ?? true,
+                    hasEmail: !!(biz as any).email,
+                });
+                const oppScore = opportunityResult.score;
+                const opportunityLevel = opportunityResult.level;
+                const opportunityEligible = catInfo?.eligible ?? true;
 
                 let resolvedAreaId = areaId;
                 const searchAreaName = biz.area || biz.city;
@@ -128,7 +169,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                     place_id: biz.place_id,
                     business_name: biz.business_name,
                     category_id: categoryId,
-                    google_category: biz.google_category || biz.category, // Exact Google Category
+                    google_category: biz.google_category || biz.category,
                     owner_name: biz.owner_name,
                     business_status: biz.business_status,
                     city_id: cityId,
@@ -140,6 +181,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                     phone_number: biz.phone_number,
                     website: biz.website,
                     website_exists: biz.website_exists,
+                    website_status: websiteStatus,
                     email: biz.email,
                     google_maps_url: biz.google_maps_url,
                     rating: biz.rating,
@@ -148,6 +190,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                     longitude: biz.longitude,
                     ai_score: aiScore,
                     opportunity_score: oppScore,
+                    opportunity_level: opportunityLevel,
+                    opportunity_eligible: opportunityEligible,
                     audit_mobile_responsive: biz.audit_mobile_responsive,
                     audit_https: biz.audit_https,
                     audit_speed_score: biz.audit_speed_score,
@@ -163,7 +207,38 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 if (biz.place_id) {
                     await prisma.business.upsert({
                         where: { place_id: biz.place_id },
-                        update: {}, // Don't overwrite existing
+                        update: {
+                            job_id: job.id,
+                            category_id: categoryId,
+                            google_category: biz.google_category || biz.category,
+                            state_id: stateId,
+                            city_id: cityId,
+                            area_id: resolvedAreaId,
+                            district_id: resolvedDistrictId,
+                            country_id: countryId,
+                            full_address: biz.full_address,
+                            opportunity_score: oppScore,
+                            opportunity_level: opportunityLevel,
+                            opportunity_eligible: opportunityEligible,
+                            website_status: websiteStatus,
+                            rating: biz.rating,
+                            review_count: biz.review_count,
+                            phone_number: biz.phone_number,
+                            website: biz.website,
+                            website_exists: biz.website_exists,
+                            business_status: biz.business_status,
+                            email: biz.email,
+                            latitude: biz.latitude,
+                            longitude: biz.longitude,
+                            ai_score: aiScore,
+                            audit_mobile_responsive: biz.audit_mobile_responsive,
+                            audit_https: biz.audit_https,
+                            audit_speed_score: biz.audit_speed_score,
+                            audit_seo_score: biz.audit_seo_score,
+                            audit_ux_score: biz.audit_ux_score,
+                            audit_contact_visible: biz.audit_contact_visible,
+                            audit_booking_engine: biz.audit_booking_engine,
+                        },
                         create: data
                     });
                 } else if (biz.google_maps_url) {
@@ -171,6 +246,27 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                     const existing = await prisma.business.findFirst({ where: { google_maps_url: biz.google_maps_url } });
                     if (!existing) {
                         await prisma.business.create({ data });
+                    } else {
+                        await prisma.business.update({
+                            where: { id: existing.id },
+                            data: {
+                                job_id: job.id,
+                                opportunity_score: oppScore,
+                                opportunity_level: opportunityLevel,
+                                opportunity_eligible: opportunityEligible,
+                                website_status: websiteStatus,
+                                rating: biz.rating,
+                                review_count: biz.review_count,
+                                phone_number: biz.phone_number,
+                                website: biz.website,
+                                website_exists: biz.website_exists,
+                                business_status: biz.business_status,
+                                email: biz.email,
+                                latitude: biz.latitude,
+                                longitude: biz.longitude,
+                                ai_score: aiScore,
+                            }
+                        });
                     }
                 }
             }

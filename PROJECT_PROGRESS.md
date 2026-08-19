@@ -12,7 +12,7 @@ Current Phase:
 Phase 14 — AI CRM Workspace
 
 Current Task:
-CRM Master Handoff - Ready for Production Release.
+Discovery Geographic Rebuild and Opportunity Scorer Integration - Verified and Completed.
 
 Completed:
 - Phase 1: CRM Database Foundation (PASS)
@@ -29,7 +29,7 @@ Completed:
 - Phase 12: Team Permissions & Security Switcher (PASS)
 - Phase 13: CRM Automations Background Worker (PASS)
 - Phase 14: AI CRM Workspace (PASS)
-- Business Discovery + Geography Integrity & Scopes (PASS)
+- Business Discovery + Geography Integrity & Scopes Rebuild (PASS)
 
 In Progress:
 None
@@ -38,7 +38,7 @@ Blocked:
 None
 
 Next:
-Production deployment and maintenance releases.
+Ready for production deployment.
 
 Last Updated:
 2026-08-19
@@ -362,6 +362,14 @@ None.
 * **Reason**: Maintain audit integrity of financial agreements and close rates.
 * **Date**: 2026-08-18
 
+### Decision: SearchLocation state-scoping index
+* **Reason**: Enforce strict administrative isolation for locations. Autocomplete is strictly state-scoped at database query level.
+* **Date**: 2026-08-19
+
+### Decision: Business rediscovery updates connection
+* **Reason**: Rediscovering a business updates its job connection, opportunity level, score, website status, rating, and review count to keep it visible in the latest discovery results and prevent orphan states.
+* **Date**: 2026-08-19
+
 ---
 
 # ENVIRONMENT REQUIREMENTS
@@ -382,15 +390,10 @@ None.
 
 # REMAINING WORK
 
-- Implement Phase 9 — CRM Dashboard + Analytics (NOT_STARTED)
-- Implement Phase 10 — Advanced CRM Management (NOT_STARTED)
-- Implement Phase 11 — Lead Intelligence (NOT_STARTED)
-- Implement Phase 12 — Permissions + Security (NOT_STARTED)
-- Implement Phase 13 — CRM Automations (NOT_STARTED)
-- Implement Phase 14 — AI CRM (NOT_STARTED)
+None. The entire BizRank Discovery + CRM module is fully completed, integrated, and E2E verified.
 
 ---
 
 # FINAL HANDOFF NOTES
 
-The codebase is in a highly clean and ready state. All deal lifecycles are validated and compile checks are clean. All tests are passing. The next agent should take over from **Phase 9: CRM Dashboard + Analytics** using this project progress guide.
+The codebase is in a highly clean and ready state. All discovery features, scorer rules, geographic containment isolation, and CRM promotions compile and verify successfully with 0 errors. All test suites pass. Ready for release.

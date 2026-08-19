@@ -20,15 +20,19 @@ model Country {
   businesses Business[]
 }
 
+// State type: STATE or UNION_TERRITORY
 model State {
   id        Int     @id @default(autoincrement())
   name      String
+  code      String? // ISO 3166-2 code e.g. "IN-DL" for Delhi
+  type      String  @default("STATE") // STATE | UNION_TERRITORY
   countryId Int
   country   Country @relation(fields: [countryId], references: [id])
   districts District[]
   cities    City[]
 
-  businesses Business[]
+  businesses      Business[]
+  searchLocations SearchLocation[]
 
   source        String?
   sourceCode    String?
@@ -36,6 +40,8 @@ model State {
   sourceVersion String?
   sourceUrl     String?
   importedAt    DateTime   @default(now())
+
+  @@unique([countryId, name])
 }
 
 model District {
@@ -78,8 +84,11 @@ model City {
   state         State?       @relation(fields: [stateId], references: [id])
   subdistrictId Int?
   subdistrict   SubDistrict? @relation(fields: [subdistrictId], references: [id])
+  latitude      Float?
+  longitude     Float?
   areas         Area[]
   businesses    Business[]
+  searchLocations SearchLocation[]
 
   source        String?
   sourceCode    String?
@@ -94,7 +103,10 @@ model Area {
   name    String
   cityId  Int
   city    City    @relation(fields: [cityId], references: [id])
+  latitude  Float?
+  longitude Float?
   businesses Business[]
+  searchLocations SearchLocation[]
 
   source        String?
   sourceCode    String?
@@ -104,9 +116,46 @@ model Area {
   importedAt    DateTime     @default(now())
 }
 
+// ==========================================
+// LOCATION SEARCH (for autocomplete)
+// ==========================================
+
+// Denormalized search index for fast location autocomplete
+model SearchLocation {
+  id          Int     @id @default(autoincrement())
+  name        String  // Display name e.g. "Rohini"
+  displayName String  // Full display e.g. "Rohini, Delhi"
+  type        String  // CITY | AREA | LOCALITY | TOWN | SUBURB
+  stateId     Int
+  state       State   @relation(fields: [stateId], references: [id])
+  cityId      Int?
+  city        City?   @relation(fields: [cityId], references: [id])
+  areaId      Int?
+  area        Area?   @relation(fields: [areaId], references: [id])
+  latitude    Float?
+  longitude   Float?
+  source      String  @default("SEED") // SEED | CENSUS | OSM | LGD
+  sourceId    String?
+
+  @@index([stateId])
+  @@index([name])
+  @@map("search_locations")
+}
+
+// ==========================================
+// BUSINESS CATEGORIES
+// ==========================================
+
 model BusinessCategory {
-  id    Int     @id @default(autoincrement())
-  name  String  @unique
+  id                       Int     @id @default(autoincrement())
+  name                     String  @unique
+  displayName              String?
+  // 0.0 = no opportunity, 1.0 = maximum opportunity
+  websiteOpportunityWeight Float   @default(0.5)
+  // false = ATM/petrol pump/govt office etc — never a website lead
+  opportunityEligible      Boolean @default(true)
+  // Provider keywords that map to this category
+  providerKeywords         String? // JSON array stored as string
 
   businesses Business[]
 }
@@ -132,6 +181,12 @@ model CollectionJob {
   cityId      Int?
   areaId      Int?
   categoryId  Int?
+
+  // Extended geographic context
+  locationName  String?  // User-entered location name e.g. "Rohini"
+  locationLat   Float?   // Resolved latitude
+  locationLng   Float?   // Resolved longitude
+  radiusKm      Float?   @default(5.0)  // Search radius in km
   
   businesses  Business[] 
 
@@ -141,6 +196,12 @@ model CollectionJob {
 // ==========================================
 // BUSINESS LEADS (CORE)
 // ==========================================
+
+// Website status enum values (stored as String for SQLite/PG compatibility)
+// UNKNOWN | NO_WEBSITE | WEBSITE_FOUND | WEBSITE_VERIFIED | LOW_QUALITY_WEBSITE
+
+// Opportunity level values
+// HIGH | MEDIUM | LOW | NOT_TARGET
 
 model Business {
   id                Int      @id @default(autoincrement())
@@ -173,22 +234,32 @@ model Business {
   phone_number      String?
   website           String?
   website_exists    Boolean  @default(false)
+  // Detailed website status
+  website_status    String   @default("UNKNOWN") // UNKNOWN | NO_WEBSITE | WEBSITE_FOUND | WEBSITE_VERIFIED | LOW_QUALITY_WEBSITE
   email             String?
-  google_maps_url   String?  // Keep as optional fallback
+  google_maps_url   String?
   
   rating            Float?
   review_count      Int?
   latitude          Float?
   longitude         Float?
 
-  // Exact Google Maps Data Fields
+  // Exact Google Maps / Provider Data Fields
   google_category   String?
   owner_name        String?
   business_status   String?
 
+  // Social presence
+  instagram_url     String?
+  facebook_url      String?
+
   // Separation of Scores
-  ai_score          Int?     // Based on website quality
-  opportunity_score Int?     // Based on business size, revenue potential
+  ai_score          Int?     // Based on website quality audit
+  opportunity_score Int?     // Deterministic opportunity score (0-100)
+
+  // Opportunity Classification
+  opportunity_level    String?  @default("UNKNOWN") // HIGH | MEDIUM | LOW | NOT_TARGET | UNKNOWN
+  opportunity_eligible Boolean  @default(true)       // false = ATM/govt office etc.
 
   // Expanded Website Audit
   audit_mobile_responsive Boolean?
@@ -200,7 +271,7 @@ model Business {
   audit_booking_engine    Boolean?
   
   // Workflow Status
-  discovery_status        String   @default("Discovered") // e.g., Discovered, Audited, Qualified
+  discovery_status        String   @default("Discovered") // Discovered | Audited | Qualified
   crm_status              String?  // Only populated if pushed to CRM pipeline
   priority                String?  // Priority A, B, C
   revenue                 Float?
@@ -217,6 +288,10 @@ model Business {
   tasks                   Task[]
   crm_lead                CRMLead?
 
+  @@index([state_id])
+  @@index([opportunity_level])
+  @@index([website_status])
+  @@index([opportunity_score])
   @@map("businesses")
 }
 

@@ -2,21 +2,25 @@ import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
 
 export async function GET() {
-    try {
-        const countries = await prisma.country.findMany({ orderBy: { name: 'asc' } });
-        const states = await prisma.state.findMany({ orderBy: { name: 'asc' } });
-        const cities: any[] = [];
-        const areas: any[] = [];
-        const categories = await prisma.businessCategory.findMany({ orderBy: { name: 'asc' } });
+  try {
+    const [countries, states, categories] = await Promise.all([
+      prisma.country.findMany({ orderBy: { name: 'asc' } }),
+      prisma.state.findMany({ orderBy: { name: 'asc' } }),
+      prisma.businessCategory.findMany({
+        where: { opportunityEligible: true },
+        orderBy: { name: 'asc' }
+      }),
+    ]);
 
-        return NextResponse.json({
-            countries,
-            states,
-            cities,
-            areas,
-            categories
-        });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    return NextResponse.json({
+      countries,
+      states,
+      // cities and areas are now handled via /api/locations/search (autocomplete)
+      cities: [],
+      areas: [],
+      categories,
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
