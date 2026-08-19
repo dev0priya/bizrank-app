@@ -102,8 +102,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 const districtId = job.districtId || null;
 
                 let resolvedAreaId = areaId;
-                if (!resolvedAreaId && cityId && (biz.neighborhood || biz.city)) {
-                    const searchAreaName = biz.neighborhood || biz.city;
+                const searchAreaName = biz.area || biz.city;
+                if (!resolvedAreaId && cityId && searchAreaName) {
                     const matchedArea = await prisma.area.findFirst({
                         where: {
                             name: { equals: searchAreaName, mode: 'insensitive' },

@@ -14,7 +14,7 @@ export async function GET() {
             where: {
                 OR: [
                     { priority: 'A' },
-                    { tags: { any: { tag: { name: 'HOT' } } } }
+                    { tags: { some: { tag: { name: 'HOT' } } } }
                 ]
             }
         });
