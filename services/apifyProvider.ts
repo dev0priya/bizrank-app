@@ -12,11 +12,12 @@ export class ApifyProvider implements BusinessProvider {
         this.client = new ApifyClient({ token: Config.APIFY_API_TOKEN });
     }
 
-    async startSearch({ country, state, city, area, category, maxResults = 20 }: SearchParams) {
+    async startSearch({ country, state, district, city, area, category, maxResults = 20 }: SearchParams) {
         const searchParts: string[] = [];
         if (category) searchParts.push(category);
         if (area) searchParts.push(area);
         if (city) searchParts.push(city);
+        if (district) searchParts.push(district);
         if (state) searchParts.push(state);
         if (country) searchParts.push(country);
 

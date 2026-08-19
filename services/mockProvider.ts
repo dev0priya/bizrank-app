@@ -54,9 +54,9 @@ export class MockProvider implements BusinessProvider {
             params = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
         } catch(e) {}
 
-        const { country, state, city, area, category, maxResults = 20 } = params;
+        const { country, state, district, city, area, category, maxResults = 20 } = params;
         
-        const seedStr = `${country}-${state}-${city}-${area}-${category}-${maxResults}`;
+        const seedStr = `${country}-${state}-${district || ''}-${city}-${area}-${category}-${maxResults}`;
         const seed = xmur3(seedStr)();
         const rand = mulberry32(seed);
 

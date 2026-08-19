@@ -43,12 +43,13 @@ export class GooglePlacesProvider implements BusinessProvider {
             params = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
         } catch(e) {}
 
-        const { country, state, city, area, category, maxResults = 20 } = params;
+        const { country, state, district, city, area, category, maxResults = 20 } = params;
         
         let queryParts = [];
         if (category) queryParts.push(category);
         if (area) queryParts.push(area);
         if (city) queryParts.push(city);
+        if (district) queryParts.push(district);
         if (state) queryParts.push(state);
         if (country) queryParts.push(country);
 

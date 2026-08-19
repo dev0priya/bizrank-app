@@ -948,6 +948,7 @@ async function importToDatabase(
             const matchedCity = await prisma.city.findFirst({
                 where: {
                     name: { equals: oc.name, mode: 'insensitive' },
+                    ...(oc.stateId ? { stateId: oc.stateId } : {}),
                     subdistrictId: { not: null }
                 }
             });

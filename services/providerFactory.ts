@@ -5,6 +5,7 @@ import { MockProvider } from './mockProvider';
 export interface SearchParams {
     country?: string;
     state?: string;
+    district?: string;
     city?: string;
     area?: string;
     category?: string;

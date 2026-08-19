@@ -23,6 +23,60 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             data: updateData
         });
 
+        // Decoupled CRMLead integration logic
+        if (body.crm_status === 'Lead' || body.discovery_status === 'CRM') {
+            try {
+                // Find default pipeline stage 'New'
+                const defaultStage = await prisma.pipelineStage.findFirst({
+                    where: { name: 'New' }
+                });
+                
+                if (defaultStage) {
+                    const existingLead = await prisma.cRMLead.findUnique({
+                        where: { businessId: businessId }
+                    });
+
+                    if (!existingLead) {
+                        const newLead = await prisma.cRMLead.create({
+                            data: {
+                                businessId: businessId,
+                                pipelineStageId: defaultStage.id,
+                                priority: body.priority || updated.priority || null,
+                                estimatedValue: body.revenue ? parseFloat(body.revenue) : (updated.revenue || 0),
+                                assignedTo: body.assigned_user || updated.assigned_user || null,
+                                leadScore: updated.opportunity_score || 0
+                            }
+                        });
+
+                        // Create an activity for the promotion
+                        await prisma.activity.create({
+                            data: {
+                                crmLeadId: newLead.id,
+                                type: 'OTHER',
+                                summary: 'Lead Promoted to CRM',
+                                details: 'Business promoted from discovery queue to active CRM sales pipeline.',
+                                performedBy: 'System',
+                                outcome: 'Success'
+                            }
+                        });
+
+                        // Log CRMAuditLog entry
+                        await prisma.cRMAuditLog.create({
+                            data: {
+                                performedBy: 'System',
+                                action: 'LEAD_CREATED',
+                                entityType: 'CRMLead',
+                                entityId: newLead.id,
+                                newValue: 'Promoted to CRM Lead'
+                            }
+                        });
+                    }
+                }
+            } catch (crmErr) {
+                console.error('Failed to create CRMLead record:', crmErr);
+            }
+        }
+
         // If pushing to CRM (crm_status set to 'Lead'), create a TimelineEvent
         if (body.crm_status && body.crm_status !== 'Unqualified') {
             await prisma.timelineEvent.create({

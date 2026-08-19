@@ -126,6 +126,13 @@ model CollectionJob {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   
+  countryId   Int?
+  stateId     Int?
+  districtId  Int?
+  cityId      Int?
+  areaId      Int?
+  categoryId  Int?
+  
   businesses  Business[] 
 
   @@map("collection_jobs")
@@ -208,6 +215,7 @@ model Business {
   timeline_events         TimelineEvent[]
   notes                   Note[]
   tasks                   Task[]
+  crm_lead                CRMLead?
 
   @@map("businesses")
 }
@@ -253,4 +261,225 @@ model Task {
   business      Business @relation(fields: [business_id], references: [id], onDelete: Cascade)
 
   @@map("tasks")
+}
+
+model CRMLead {
+  id                Int             @id @default(autoincrement())
+  businessId        Int             @unique
+  business          Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  pipelineStageId   Int
+  pipelineStage     PipelineStage   @relation(fields: [pipelineStageId], references: [id])
+  
+  priority          String?         // 'A', 'B', 'C'
+  leadScore         Int             @default(0)
+  estimatedValue    Float           @default(0.0)
+  assignedTo        String?         // Assigned agent identifier (Username/Email)
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // CRM Child Relations
+  contacts          Contact[]
+  activities        Activity[]
+  notes             CRMNote[]
+  followUps         FollowUp[]
+  deals             Deal[]
+  tags              LeadTag[]
+
+  @@index([pipelineStageId])
+  @@index([assignedTo])
+  @@index([priority])
+  @@map("crm_leads")
+}
+
+model Contact {
+  id                     Int       @id @default(autoincrement())
+  crmLeadId              Int
+  crmLead                CRMLead   @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  
+  name                   String
+  role                   String?   // 'Owner', 'Manager', 'IT Administrator', etc.
+  phone                  String?
+  email                  String?
+  whatsapp               String?
+  preferredContactMethod String?   // 'EMAIL', 'PHONE', 'WHATSAPP'
+  isPrimary              Boolean   @default(false)
+  
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  activities             Activity[]
+  followUps              FollowUp[]
+
+  @@index([crmLeadId])
+  @@map("crm_contacts")
+}
+
+model Pipeline {
+  id          Int             @id @default(autoincrement())
+  name        String          @unique
+  stages      PipelineStage[]
+  createdAt   DateTime        @default(now())
+  
+  @@map("crm_pipelines")
+}
+
+model PipelineStage {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique // 'New', 'Contacted', 'Meeting Scheduled', 'Proposal Sent', 'Closed Won', 'Closed Lost'
+  order       Int        // Column display order (1, 2, 3...)
+  pipelineId  Int
+  pipeline    Pipeline   @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  leads       CRMLead[]
+  
+  createdAt   DateTime   @default(now())
+
+  @@index([pipelineId])
+  @@index([order])
+  @@map("crm_pipeline_stages")
+}
+
+enum ActivityType {
+  CALL
+  WHATSAPP
+  EMAIL
+  MEETING
+  DEMO
+  PROPOSAL
+  OTHER
+}
+
+model Activity {
+  id          Int          @id @default(autoincrement())
+  crmLeadId   Int
+  crmLead     CRMLead      @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  
+  contactId   Int?         @map("contact_id")
+  contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  type        ActivityType
+  outcome     String?      // 'Connected', 'No Answer', 'Busy', etc.
+  summary     String       // Brief title
+  details     String?      // Full description block
+  performedBy String       // Agent name/identifier
+  occurredAt  DateTime     @default(now())
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([crmLeadId])
+  @@index([contactId])
+  @@index([type])
+  @@index([occurredAt])
+  @@map("crm_activities")
+}
+
+model CRMNote {
+  id          Int      @id @default(autoincrement())
+  crmLeadId   Int
+  crmLead     CRMLead  @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  
+  author      String
+  content     String   // Long-term guidelines (e.g. "Do not call before 2 PM")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([crmLeadId])
+  @@map("crm_notes")
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model FollowUp {
+  id          Int            @id @default(autoincrement())
+  crmLeadId   Int
+  crmLead     CRMLead        @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  
+  contactId   Int?           @map("contact_id")
+  contact     Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  assignedTo  String?
+  dueAt       DateTime
+  status      FollowUpStatus @default(PENDING)
+  completedAt DateTime?
+  outcome     String?
+  reminderAt  DateTime?      @map("reminder_at")
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([crmLeadId])
+  @@index([contactId])
+  @@index([status])
+  @@index([dueAt])
+  @@map("crm_follow_ups")
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+}
+
+model Deal {
+  id                Int        @id @default(autoincrement())
+  crmLeadId         Int
+  crmLead           CRMLead    @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  
+  name              String?
+  description       String?
+  value             Float      @default(0.0)
+  currency          String     @default("USD")
+  expectedCloseDate DateTime?
+  status            DealStatus @default(OPEN)
+  wonAt             DateTime?
+  lostAt            DateTime?
+  lostReason        String?
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([crmLeadId])
+  @@index([status])
+  @@map("crm_deals")
+}
+
+model Tag {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique // 'HOT', 'WEBSITE_UPGRADE', 'URGENT'
+  leads     LeadTag[]
+  createdAt DateTime  @default(now())
+  
+  @@map("crm_tags")
+}
+
+model LeadTag {
+  crmLeadId Int
+  crmLead   CRMLead @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  tagId     Int
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([crmLeadId, tagId])
+  @@map("crm_lead_tags")
+}
+
+model CRMAuditLog {
+  id            Int      @id @default(autoincrement())
+  performedBy   String   // User username or agent email
+  action        String   // 'LEAD_CREATED', 'STAGE_CHANGED', 'DEAL_WON', etc.
+  entityType    String   // 'CRMLead', 'Deal', 'Activity'
+  entityId      Int
+  previousValue String?  // Stringified state or value
+  newValue      String?
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("crm_audit_logs")
 }

@@ -75,11 +75,24 @@ export async function GET(request: Request) {
             });
         } else if (type === 'city') {
             const stateId = parseInt(searchParams.get('stateId') || '0');
+            const districtId = parseInt(searchParams.get('districtId') || '0');
             const subdistrictId = parseInt(searchParams.get('subdistrictId') || '0');
             
+            if (districtId && stateId) {
+                const dist = await prisma.district.findFirst({ where: { id: districtId } });
+                if (dist && dist.stateId !== stateId) {
+                    return NextResponse.json({ error: 'Selected District does not belong to the selected State' }, { status: 400 });
+                }
+            }
+
             if (subdistrictId) {
                 data = await prisma.city.findMany({
                     where: { subdistrictId },
+                    orderBy: { name: 'asc' }
+                });
+            } else if (districtId) {
+                data = await prisma.city.findMany({
+                    where: { subdistrict: { districtId } },
                     orderBy: { name: 'asc' }
                 });
             } else if (stateId) {
@@ -102,8 +115,32 @@ export async function GET(request: Request) {
                 });
             }
         } else if (type === 'area') {
+            const cityId = parentId;
+            if (!cityId) {
+                return NextResponse.json({ error: 'City ID (parentId) is required for area query' }, { status: 400 });
+            }
+
+            const city = await prisma.city.findUnique({
+                where: { id: cityId },
+                include: { subdistrict: true }
+            });
+            if (!city) {
+                return NextResponse.json({ error: 'City not found' }, { status: 404 });
+            }
+
+            const stateId = parseInt(searchParams.get('stateId') || '0');
+            const districtId = parseInt(searchParams.get('districtId') || '0');
+
+            if (stateId && city.stateId !== stateId) {
+                return NextResponse.json({ error: 'City does not belong to the selected State' }, { status: 400 });
+            }
+
+            if (districtId && city.subdistrict?.districtId !== districtId) {
+                return NextResponse.json({ error: 'City does not belong to the selected District' }, { status: 400 });
+            }
+
             data = await prisma.area.findMany({
-                where: parentId ? { cityId: parentId } : {},
+                where: { cityId },
                 orderBy: { name: 'asc' }
             });
         } else {

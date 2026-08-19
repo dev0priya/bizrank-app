@@ -54,7 +54,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             const uniqueCountryNames = Array.from(new Set(audited.map(biz => biz.country).filter(Boolean))) as string[];
 
             const cities = uniqueCityNames.length > 0 
-                ? await prisma.city.findMany({ where: { name: { in: uniqueCityNames, mode: 'insensitive' } } }) 
+                ? await prisma.city.findMany({ 
+                    where: { 
+                        name: { in: uniqueCityNames, mode: 'insensitive' },
+                        ...(job.stateId ? { stateId: job.stateId } : {})
+                    } 
+                  }) 
                 : [];
             const states = uniqueStateNames.length > 0 
                 ? await prisma.state.findMany({ where: { name: { in: uniqueStateNames, mode: 'insensitive' } } }) 
@@ -63,8 +68,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 ? await prisma.country.findMany({ 
                     where: { 
                         OR: [
-                            { name: { in: uniqueCountryNames, mode: 'insensitive' } },
-                            { code: { in: uniqueCountryNames, mode: 'insensitive' } }
+                           { name: { in: uniqueCountryNames, mode: 'insensitive' } },
+                           { code: { in: uniqueCountryNames, mode: 'insensitive' } }
                         ] 
                     } 
                   }) 
@@ -89,16 +94,48 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 const aiScore = biz.ai_score || 0;
                 const oppScore = biz.website_exists ? (100 - aiScore) : 90; // High opportunity if no website or bad website
                 
+                const categoryId = job.categoryId || getCatId(biz.category);
+                const cityId = job.cityId || getCityId(biz.city);
+                const stateId = job.stateId || getStateId(biz.state);
+                const countryId = job.countryId || getCountryId(biz.country);
+                const areaId = job.areaId || null;
+                const districtId = job.districtId || null;
+
+                let resolvedAreaId = areaId;
+                if (!resolvedAreaId && cityId && (biz.neighborhood || biz.city)) {
+                    const searchAreaName = biz.neighborhood || biz.city;
+                    const matchedArea = await prisma.area.findFirst({
+                        where: {
+                            name: { equals: searchAreaName, mode: 'insensitive' },
+                            cityId: cityId
+                        }
+                    });
+                    if (matchedArea) resolvedAreaId = matchedArea.id;
+                }
+
+                let resolvedDistrictId = districtId;
+                if (!resolvedDistrictId && cityId) {
+                    const cityWithSub = await prisma.city.findUnique({
+                        where: { id: cityId },
+                        include: { subdistrict: true }
+                    });
+                    if (cityWithSub?.subdistrict) {
+                        resolvedDistrictId = cityWithSub.subdistrict.districtId;
+                    }
+                }
+
                 const data = {
                     place_id: biz.place_id,
                     business_name: biz.business_name,
-                    category_id: getCatId(biz.category),
+                    category_id: categoryId,
                     google_category: biz.google_category || biz.category, // Exact Google Category
                     owner_name: biz.owner_name,
                     business_status: biz.business_status,
-                    city_id: getCityId(biz.city),
-                    state_id: getStateId(biz.state),
-                    country_id: getCountryId(biz.country),
+                    city_id: cityId,
+                    state_id: stateId,
+                    country_id: countryId,
+                    area_id: resolvedAreaId,
+                    district_id: resolvedDistrictId,
                     full_address: biz.full_address,
                     phone_number: biz.phone_number,
                     website: biz.website,

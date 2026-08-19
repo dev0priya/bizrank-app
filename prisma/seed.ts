@@ -128,6 +128,8 @@ async function main() {
     await prisma.collectionJob.deleteMany({});
     await prisma.area.deleteMany({});
     await prisma.city.deleteMany({});
+    await prisma.subDistrict.deleteMany({});
+    await prisma.district.deleteMany({});
     await prisma.state.deleteMany({});
     await prisma.country.deleteMany({});
     await prisma.businessCategory.deleteMany({});

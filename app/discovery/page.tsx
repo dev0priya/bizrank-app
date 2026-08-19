@@ -29,21 +29,74 @@ export default function BusinessDiscoveryPage() {
     const [selectedProvider, setSelectedProvider] = useState('apify');
     const [selectedCountry, setSelectedCountry] = useState('');
     const [selectedState, setSelectedState] = useState('');
+    const [selectedDistrict, setSelectedDistrict] = useState('');
     const [selectedCity, setSelectedCity] = useState('');
     const [selectedArea, setSelectedArea] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
     const [maxResults, setMaxResults] = useState(20);
     
+    const [availableDistricts, setAvailableDistricts] = useState<any[]>([]);
     const [availableCities, setAvailableCities] = useState<any[]>([]);
     const [availableAreas, setAvailableAreas] = useState<any[]>([]);
 
+    const handleCountryChange = (val: string) => {
+        setSelectedCountry(val);
+        setSelectedState('');
+        setSelectedDistrict('');
+        setSelectedCity('');
+        setSelectedArea('');
+        setAvailableDistricts([]);
+        setAvailableCities([]);
+        setAvailableAreas([]);
+    };
+
+    const handleStateChange = (val: string) => {
+        setSelectedState(val);
+        setSelectedDistrict('');
+        setSelectedCity('');
+        setSelectedArea('');
+        setAvailableDistricts([]);
+        setAvailableCities([]);
+        setAvailableAreas([]);
+    };
+
+    const handleDistrictChange = (val: string) => {
+        setSelectedDistrict(val);
+        setSelectedCity('');
+        setSelectedArea('');
+        setAvailableCities([]);
+        setAvailableAreas([]);
+    };
+
+    const handleCityChange = (val: string) => {
+        setSelectedCity(val);
+        setSelectedArea('');
+        setAvailableAreas([]);
+    };
+
+    // Fetch districts when state changes
     useEffect(() => {
         if (!selectedState) {
-            setAvailableCities([]);
-            setSelectedCity('');
+            setAvailableDistricts([]);
             return;
         }
-        fetch(`/api/master/location?type=city&stateId=${selectedState}`)
+        fetch(`/api/master/location?type=district&parentId=${selectedState}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.data) {
+                    setAvailableDistricts(data.data);
+                }
+            })
+            .catch(console.error);
+    }, [selectedState]);
+
+    // Fetch cities when district changes
+    useEffect(() => {
+        if (!selectedDistrict) {
+            setAvailableCities([]);
+            return;
+        }
+        fetch(`/api/master/location?type=city&stateId=${selectedState}&districtId=${selectedDistrict}`)
             .then(res => res.json())
             .then(data => {
                 if (data.data) {
@@ -51,15 +104,15 @@ export default function BusinessDiscoveryPage() {
                 }
             })
             .catch(console.error);
-    }, [selectedState]);
+    }, [selectedDistrict, selectedState]);
 
+    // Fetch areas when city changes
     useEffect(() => {
         if (!selectedCity) {
             setAvailableAreas([]);
-            setSelectedArea('');
             return;
         }
-        fetch(`/api/master/location?type=area&parentId=${selectedCity}`)
+        fetch(`/api/master/location?type=area&parentId=${selectedCity}&stateId=${selectedState}&districtId=${selectedDistrict}`)
             .then(res => res.json())
             .then(data => {
                 if (data.data) {
@@ -67,7 +120,7 @@ export default function BusinessDiscoveryPage() {
                 }
             })
             .catch(console.error);
-    }, [selectedCity]);
+    }, [selectedCity, selectedState, selectedDistrict]);
     
     // Execution State
     const [jobId, setJobId] = useState<number | null>(null);
@@ -98,6 +151,7 @@ export default function BusinessDiscoveryPage() {
                 setSelectedProvider(parsed.selectedProvider || 'apify');
                 setSelectedCountry(parsed.selectedCountry || '');
                 setSelectedState(parsed.selectedState || '');
+                setSelectedDistrict(parsed.selectedDistrict || '');
                 setSelectedCity(parsed.selectedCity || '');
                 setSelectedArea(parsed.selectedArea || '');
                 setSelectedCategory(parsed.selectedCategory || '');
@@ -134,6 +188,7 @@ export default function BusinessDiscoveryPage() {
             selectedProvider,
             selectedCountry,
             selectedState,
+            selectedDistrict,
             selectedCity,
             selectedArea,
             selectedCategory,
@@ -147,7 +202,7 @@ export default function BusinessDiscoveryPage() {
         };
         
         sessionStorage.setItem('bizrank_discovery_session', JSON.stringify(sessionState));
-    }, [isHydrated, selectedProvider, selectedCountry, selectedState, selectedCity, selectedArea, selectedCategory, maxResults, jobId, jobStatus, progress, startTime, elapsedTime, businesses]);
+    }, [isHydrated, selectedProvider, selectedCountry, selectedState, selectedDistrict, selectedCity, selectedArea, selectedCategory, maxResults, jobId, jobStatus, progress, startTime, elapsedTime, businesses]);
 
     // Scroll Position Tracking
     useEffect(() => {
@@ -178,9 +233,13 @@ export default function BusinessDiscoveryPage() {
         setSelectedProvider('apify');
         setSelectedCountry('');
         setSelectedState('');
+        setSelectedDistrict('');
         setSelectedCity('');
         setSelectedArea('');
         setSelectedCategory('');
+        setAvailableDistricts([]);
+        setAvailableCities([]);
+        setAvailableAreas([]);
         setMaxResults(20);
         setJobId(null);
         setJobStatus('');
@@ -202,9 +261,16 @@ export default function BusinessDiscoveryPage() {
             provider: selectedProvider,
             country: masterData.countries.find((c: any) => c.id === parseInt(selectedCountry))?.name || '',
             state: masterData.states.find((s: any) => s.id === parseInt(selectedState))?.name || '',
+            district: availableDistricts.find((d: any) => d.id === parseInt(selectedDistrict))?.name || '',
             city: availableCities.find((c: any) => c.id === parseInt(selectedCity))?.name || '',
             area: availableAreas.find((a: any) => a.id === parseInt(selectedArea))?.name || '',
             category: masterData.categories.find((c: any) => c.id === parseInt(selectedCategory))?.name || '',
+            countryId: parseInt(selectedCountry) || null,
+            stateId: parseInt(selectedState) || null,
+            districtId: parseInt(selectedDistrict) || null,
+            cityId: parseInt(selectedCity) || null,
+            areaId: parseInt(selectedArea) || null,
+            categoryId: parseInt(selectedCategory) || null,
             maxResults
         };
 
@@ -321,7 +387,7 @@ export default function BusinessDiscoveryPage() {
                     
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Country</label>
-                        <select className="select-input" value={selectedCountry} onChange={e => setSelectedCountry(e.target.value)}>
+                        <select className="select-input" value={selectedCountry} onChange={e => handleCountryChange(e.target.value)}>
                             <option value="">Any Country</option>
                             {masterData.countries.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
@@ -329,27 +395,45 @@ export default function BusinessDiscoveryPage() {
 
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>State/Province</label>
-                        <select className="select-input" value={selectedState} onChange={e => setSelectedState(e.target.value)}>
+                        <select className="select-input" value={selectedState} onChange={e => handleStateChange(e.target.value)}>
                             <option value="">Any State</option>
                             {availableStates.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </div>
 
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>City *</label>
-                        <select className="select-input" value={selectedCity} onChange={e => setSelectedCity(e.target.value)}>
-                            <option value="">Select City</option>
-                            {availableCities.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </div>
+                    {selectedState && (
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>District</label>
+                            <select className="select-input" value={selectedDistrict} onChange={e => handleDistrictChange(e.target.value)}>
+                                <option value="">Select District</option>
+                                {availableDistricts.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                            </select>
+                        </div>
+                    )}
 
-                    <div>
-                        <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Area/Locality</label>
-                        <select className="select-input" value={selectedArea} onChange={e => setSelectedArea(e.target.value)}>
-                            <option value="">Any Area</option>
-                            {availableAreas.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                        </select>
-                    </div>
+                    {selectedDistrict && (
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>City *</label>
+                            <select className="select-input" value={selectedCity} onChange={e => handleCityChange(e.target.value)}>
+                                <option value="">Select City</option>
+                                {availableCities.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                        </div>
+                    )}
+
+                    {selectedCity && (
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Area/Locality</label>
+                            <select className="select-input" value={selectedArea} onChange={e => setSelectedArea(e.target.value)}>
+                                <option value="">Any Area</option>
+                                {availableAreas.length === 0 ? (
+                                    <option value="" disabled>No areas found</option>
+                                ) : (
+                                    availableAreas.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)
+                                )}
+                            </select>
+                        </div>
+                    )}
 
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Category *</label>

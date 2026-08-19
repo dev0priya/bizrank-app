@@ -5,15 +5,18 @@ import { ProviderFactory } from '../../../services/providerFactory';
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { country, state, city, area, category, maxResults, provider = 'apify' } = body;
+        const { 
+            country, state, district, city, area, category, maxResults, provider = 'apify',
+            countryId, stateId, districtId, cityId, areaId, categoryId
+        } = body;
         console.log(`\n--- DISCOVERY JOB PAYLOAD ---`);
-        console.log(`Payload: ${JSON.stringify({ country, state, city, area, category, maxResults, provider }, null, 2)}`);
+        console.log(`Payload: ${JSON.stringify({ country, state, district, city, area, category, maxResults, provider, countryId, stateId, districtId, cityId, areaId, categoryId }, null, 2)}`);
         
         const scraper = ProviderFactory.createProvider(provider);
         
         // Start run async
         const run = await scraper.startSearch({ 
-            country, state, city, area, category, 
+            country, state, district, city, area, category, 
             maxResults: maxResults || 10 
         });
 
@@ -27,7 +30,13 @@ export async function POST(request: Request) {
                 status: 'Running',
                 query: queryLabel,
                 progress: 0,
-                total: maxResults || 10
+                total: maxResults || 10,
+                countryId: countryId || null,
+                stateId: stateId || null,
+                districtId: districtId || null,
+                cityId: cityId || null,
+                areaId: areaId || null,
+                categoryId: categoryId || null
             }
         });
 
