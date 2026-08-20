@@ -151,6 +151,7 @@ export class MockProvider implements BusinessProvider {
             const fullAddress = `${Math.floor(rand() * 150) + 1}, ${area || 'Main Market'}, ${city || 'City'}, ${state || 'State'}`;
 
             items.push({
+                provider: 'mock',
                 placeId,
                 title: businessName,
                 categoryName: category,
@@ -161,7 +162,8 @@ export class MockProvider implements BusinessProvider {
                 countryCode: "IN",
                 phoneUnformatted: `+9198${Math.floor(rand() * 100000000).toString().padStart(8, '0')}`,
                 website: website,
-                url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(businessName + ' ' + fullAddress)}`,
+                // Mock data is not a verified Google place; deliberately omit a Maps URL.
+                url: null,
                 totalScore: 3.5 + (rand() * 1.5), 
                 reviewsCount: Math.floor(rand() * 1000) + 5,
                 location: {

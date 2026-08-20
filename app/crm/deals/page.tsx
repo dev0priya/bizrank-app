@@ -133,21 +133,27 @@ export default async function CRMDealsPage({
     const totalCount = await prisma.deal.count({ where });
 
     return (
-        <DealsClient 
-            categories={categories}
-            states={states}
-            deals={deals}
-            metrics={{
-                wonRevenue,
-                wonCount,
-                openPipeline
-            }}
-            pagination={{
-                total: totalCount,
-                page,
-                limit,
-                totalPages: Math.ceil(totalCount / limit)
-            }}
-        />
+        <React.Suspense fallback={
+            <div className="crm-workspace" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <h3>Loading Commercial Deals...</h3>
+            </div>
+        }>
+            <DealsClient 
+                categories={categories}
+                states={states}
+                deals={deals}
+                metrics={{
+                    wonRevenue,
+                    wonCount,
+                    openPipeline
+                }}
+                pagination={{
+                    total: totalCount,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(totalCount / limit)
+                }}
+            />
+        </React.Suspense>
     );
 }

@@ -30,17 +30,24 @@ const itemVariants = {
 export default function CRMDashboardClient() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchDashboardData = () => {
     setLoading(true);
+    setError(null);
     fetch('/api/crm/dashboard')
-      .then(res => res.json())
+      .then(async res => {
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || 'Unable to load dashboard data.');
+        return payload;
+      })
       .then(resData => {
         setData(resData);
         setLoading(false);
       })
       .catch(err => {
         console.error('Failed to load dashboard', err);
+        setError(err.message || 'Unable to load dashboard data.');
         setLoading(false);
       });
   };
@@ -58,10 +65,10 @@ export default function CRMDashboardClient() {
     );
   }
 
-  if (!data) {
+  if (error || !data) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '60vh', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-        <div style={{ color: 'var(--text-muted)' }}>No Analytics data found. Try creating some CRM Leads first.</div>
+        <div style={{ color: 'var(--text-muted)' }}>{error || 'No dashboard data found. Try creating some CRM Leads first.'}</div>
         <button onClick={fetchDashboardData} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <RefreshCw size={16} /> Refresh
         </button>
@@ -80,8 +87,8 @@ export default function CRMDashboardClient() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ margin: 0 }}>CRM Executive Dashboard</h1>
-          <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '14px' }}>Real-time sales revenue, pipeline distribution, and team activities overview.</p>
+          <h1 style={{ margin: 0 }}>CRM Dashboard</h1>
+          <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '14px' }}>A connected view of business discovery, sales activity, pipeline, and revenue.</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button onClick={fetchDashboardData} className="hover-lift ripple" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: 500 }}>
@@ -103,11 +110,54 @@ export default function CRMDashboardClient() {
       >
         <KpiCard title="Total Leads" value={metrics.totalLeads} subtitle={`${metrics.newLeads} New Leads`} icon={Users} color="#3b82f6" />
         <KpiCard title="Hot Leads" value={metrics.hotLeads} subtitle="Priority A / Hot Tags" icon={Target} color="#ef4444" />
-        <KpiCard title="Today's Follow-ups" value={metrics.todayFollowUps} subtitle={`${metrics.overdueFollowUps} Overdue Follow-ups`} icon={Calendar} color="#f59e0b" />
+        <KpiCard title="Follow-ups Due" value={metrics.todayFollowUps} subtitle="Due today" icon={Calendar} color="#f59e0b" />
+        <KpiCard title="Overdue Follow-ups" value={metrics.overdueFollowUps} subtitle="Requires attention" icon={Calendar} color="#ef4444" />
         <KpiCard title="Open Pipeline" value={`$${metrics.openPipelineValue.toLocaleString()}`} subtitle={`${metrics.openDealsCount} Active Deals`} icon={DollarSign} color="#8b5cf6" />
         <KpiCard title="Won Revenue" value={`$${metrics.wonRevenue.toLocaleString()}`} subtitle={`${metrics.wonDealsCount} Closed Won`} icon={Award} color="#10b981" />
-        <KpiCard title="Conversion Rate" value={`${metrics.conversionRate.toFixed(1)}%`} subtitle={`Avg Value: $${Math.round(metrics.averageDealValue).toLocaleString()}`} icon={TrendingUp} color="#10b981" />
+        <KpiCard title="Conversion Rate" value={`${metrics.conversionRate.toFixed(1)}%`} subtitle="Won closed deals" icon={TrendingUp} color="#10b981" />
+        <KpiCard title="Average Deal Value" value={`$${Math.round(metrics.averageDealValue).toLocaleString()}`} subtitle="Closed-won deals" icon={DollarSign} color="#3b82f6" />
       </motion.div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(320px, 0.85fr)', gap: '24px', marginBottom: '32px' }} className="dashboard-detail-grid">
+        <section className="glass-panel">
+          <h3 style={{ margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: '8px' }}><TrendingUp size={20} color="#3b82f6" /> Sales Funnel</h3>
+          <div style={{ display: 'grid', gap: '10px' }}>
+            {data.salesFunnel.map((step: any, index: number) => (
+              <div key={step.label} style={{ display: 'grid', gridTemplateColumns: '28px 1fr auto', gap: '12px', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center' }}>{index + 1}</span>
+                <div style={{ height: '10px', borderRadius: '999px', background: 'var(--border-color)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min(100, metrics.businessesDiscovered ? (step.count / metrics.businessesDiscovered) * 100 : 0)}%`, minWidth: step.count ? '8px' : 0, background: 'var(--accent-gradient)', borderRadius: 'inherit' }} />
+                </div>
+                <span style={{ minWidth: '180px', fontSize: '13px' }}>{step.label} <strong style={{ marginLeft: '8px' }}>{step.count}</strong></span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="glass-panel">
+          <h3 style={{ margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: '8px' }}><Sparkles size={20} color="#10b981" /> Discovery Performance</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <MiniMetric label="Businesses discovered" value={metrics.businessesDiscovered} />
+            <MiniMetric label="Qualified" value={metrics.qualifiedBusinesses} />
+            <MiniMetric label="Website opportunities" value={metrics.websiteOpportunities} />
+            <MiniMetric label="Added to CRM" value={metrics.crmAdded} />
+            <MiniMetric label="Conversion" value={`${metrics.discoveryConversionRate.toFixed(1)}%`} />
+          </div>
+        </section>
+      </div>
+
+      <section className="glass-panel" style={{ marginBottom: '32px' }}>
+        <h3 style={{ margin: '0 0 20px' }}>Pipeline Summary</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+          {data.pipelineSummary.map((stage: any) => <MiniMetric key={stage.stageId} label={stage.stageName} value={`${stage.leadCount} leads`} detail={`$${stage.pipelineValue.toLocaleString()} pipeline`} />)}
+        </div>
+      </section>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+        <DataList title="Today's Follow-ups" empty="No follow-ups are due today." rows={data.todayFollowUps} render={(item: any) => <Link href={`/crm/leads/${item.leadId}`} style={rowLinkStyle}><strong>{formatDateTime(item.dueAt)}</strong><span>{item.businessName}</span><span>{item.contactName || 'No contact'}</span><span>{item.owner || 'Unassigned'}</span><em style={{ color: item.status === 'OVERDUE' ? '#ef4444' : '#f59e0b' }}>{item.status === 'OVERDUE' ? 'Overdue' : 'Due today'}</em></Link>} />
+        <DataList title="Hot Leads" empty="No hot leads yet." rows={data.hotLeads} render={(lead: any) => <Link href={`/crm/leads/${lead.id}`} style={rowLinkStyle}><strong>{lead.businessName}</strong><span>{lead.location || 'Location unavailable'}</span><span>Score {lead.leadScore} · {lead.websiteStatus}</span><span>{lead.nextFollowUp ? `Next: ${formatDateTime(lead.nextFollowUp)}` : 'No follow-up scheduled'}</span></Link>} />
+        <DataList title="Recent Activities" empty="No recent activities." rows={data.recentActivities} render={(activity: any) => <Link href={`/crm/leads/${activity.leadId}`} style={rowLinkStyle}><strong>{activity.type}</strong><span>{activity.summary}</span><span>{activity.businessName}</span><span>{formatDateTime(activity.occurredAt)} · {activity.owner}</span></Link>} />
+      </div>
 
       {/* Graphs */}
       <motion.div 
@@ -222,4 +272,18 @@ function KpiCard({ title, value, subtitle, icon: Icon, color }: any) {
       </div>
     </motion.div>
   );
+}
+
+const rowLinkStyle = { display: 'grid', gap: '4px', padding: '12px 0', borderBottom: '1px solid var(--border-color)', color: 'var(--text-main)', textDecoration: 'none', fontSize: '13px' } as const;
+
+function DataList({ title, empty, rows, render }: any) {
+  return <section className="glass-panel"><h3 style={{ margin: '0 0 8px' }}>{title}</h3>{rows.length ? rows.map(render) : <p style={{ margin: '20px 0', color: 'var(--text-muted)', fontSize: '14px' }}>{empty}</p>}</section>;
+}
+
+function MiniMetric({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
+  return <div style={{ padding: '14px', border: '1px solid var(--border-color)', borderRadius: '10px' }}><div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{label}</div><strong style={{ display: 'block', fontSize: '20px', marginTop: '5px' }}>{value}</strong>{detail && <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{detail}</span>}</div>;
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' }).format(new Date(value));
 }

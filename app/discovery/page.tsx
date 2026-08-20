@@ -127,11 +127,11 @@ export default function BusinessDiscoveryPage() {
   const [maxRating, setMaxRating] = useState('');
   const [minReviews, setMinReviews] = useState('');
   const [maxReviews, setMaxReviews] = useState('');
-  const [websiteFilter, setWebsiteFilter] = useState('NO_WEBSITE'); // default: no website
-  const [phoneFilter, setPhoneFilter] = useState('available'); // default: available
-  const [opportunityFilter, setOpportunityFilter] = useState('HIGH'); // default: HIGH
+  const [websiteFilter, setWebsiteFilter] = useState('all');
+  const [phoneFilter, setPhoneFilter] = useState('all');
+  const [opportunityFilter, setOpportunityFilter] = useState('all');
   const [maxResults, setMaxResults] = useState(20);
-  const [selectedProvider, setSelectedProvider] = useState('mock');
+  const [selectedProvider, setSelectedProvider] = useState('apify');
   const [sortBy, setSortBy] = useState('opportunity_score');
 
   // Job state
@@ -598,18 +598,7 @@ export default function BusinessDiscoveryPage() {
                   </div>
                 </div>
 
-                {/* Provider */}
-                <div style={{ marginTop: '12px' }}>
-                  <label style={labelStyle}>Provider</label>
-                  <div style={{ display: 'flex', gap: '16px' }}>
-                    {[{ v: 'mock', l: 'Mock (Demo)' }, { v: 'apify', l: 'Apify' }, { v: 'google_places', l: 'Google Places' }].map(p => (
-                      <label key={p.v} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
-                        <input type="radio" name="provider" value={p.v} checked={selectedProvider === p.v} onChange={() => setSelectedProvider(p.v)} />
-                        {p.l}
-                      </label>
-                    ))}
-                  </div>
-                </div>
+                {/* Provider option removed to enforce Apify usage */}
               </motion.div>
             )}
           </AnimatePresence>
@@ -640,8 +629,7 @@ export default function BusinessDiscoveryPage() {
         {/* Location-state validation hint */}
         {selectedState && !selectedLocation && (
           <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>
-            Tip: Selecting a Location / Area helps find more precise results.
-            Without one, the entire {selectedStateObj?.name} will be searched.
+            Select a city or area for more precise results.
           </div>
         )}
       </div>
@@ -761,6 +749,20 @@ export default function BusinessDiscoveryPage() {
 
                 {/* Card Actions */}
                 <div className="card-actions" style={{ flexWrap: 'wrap', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  {b.google_maps_url ? (
+                    <a href={b.google_maps_url} target="_blank" rel="noopener noreferrer" className="btn-icon ripple" title="Open the verified business listing in Google Maps">
+                      <MapPin size={14} /> Google Maps
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '8px 0' }}>Map link unavailable</span>
+                  )}
+                  {b.website ? (
+                    <a href={b.website} target="_blank" rel="noopener noreferrer" className="btn-icon ripple" title="Visit the business's official website">
+                      <Globe size={14} /> Official Website
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '8px 0' }}>No verified website</span>
+                  )}
                   <Link href={`/business/${b.id}`} className="btn-icon ripple">
                     <ExternalLink size={14} /> View
                   </Link>

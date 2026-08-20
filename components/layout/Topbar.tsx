@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bell, Menu, Moon, Sun } from 'lucide-react';
+import Link from 'next/link';
+import { Bell, Menu, Moon, Sun, Plus } from 'lucide-react';
 import { useMobileMenu } from '../../context/MobileMenuContext';
 import { useTheme } from '../../context/ThemeContext';
 import { GlobalSearch } from '../search/GlobalSearch';
@@ -113,6 +114,9 @@ export function Topbar() {
       </div>
  
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <Link href="/discovery" className="btn-primary" title="Quick add: start a new business discovery" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '8px 10px', fontSize: '13px' }}>
+          <Plus size={16} /> <span className="quick-add-label">Quick Add</span>
+        </Link>
         {/* Role Selector dropdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>Active Role:</span>
@@ -164,4 +168,3 @@ export function Topbar() {
     </header>
   );
 }
-

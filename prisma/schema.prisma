@@ -205,6 +205,8 @@ model CollectionJob {
 
 model Business {
   id                Int      @id @default(autoincrement())
+  // The discovery provider that supplied the canonical place identity.
+  provider          String   @default("apify")
   place_id          String?  @unique
   business_name     String
   
@@ -289,6 +291,7 @@ model Business {
   crm_lead                CRMLead?
 
   @@index([state_id])
+  @@index([provider, place_id])
   @@index([opportunity_level])
   @@index([website_status])
   @@index([opportunity_score])
@@ -557,4 +560,38 @@ model CRMAuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("crm_audit_logs")
+}
+
+model DiscoverySearchHistory {
+  id           Int      @id @default(autoincrement())
+  locationName String
+  categoryName String?
+  filters      String?  // JSON string
+  provider     String   @default("mock")
+  resultCount  Int      @default(0)
+  status       String   @default("COMPLETED")
+  createdAt    DateTime @default(now())
+
+  @@map("discovery_search_history")
+}
+
+model DiscoverySavedSearch {
+  id                Int      @id @default(autoincrement())
+  name              String
+  countryName       String   @default("India")
+  stateId           Int?
+  stateName         String?
+  locationName      String
+  categoryId        Int?
+  categoryName      String?
+  minRating         Float?
+  maxRating         Float?
+  minReviews        Int?
+  maxReviews        Int?
+  websiteFilter     String?
+  phoneFilter       String?
+  opportunityFilter String?
+  createdAt         DateTime @default(now())
+
+  @@map("discovery_saved_searches")
 }

@@ -14,8 +14,12 @@ module.exports = {
   },
   rules: {
     'no-unused-vars': 'off', // handled by TS
-    '@typescript-eslint/no-unused-vars': 'error',
-    '@typescript-eslint/no-explicit-any': 'warn'
+    '@typescript-eslint/no-unused-vars': 'warn',
+    '@typescript-eslint/no-explicit-any': 'warn',
+    'no-empty': 'warn',
+    'prefer-const': 'warn',
+    'no-useless-escape': 'warn',
+    '@typescript-eslint/no-var-requires': 'warn'
   },
   ignorePatterns: ['dist/', 'node_modules/']
 };

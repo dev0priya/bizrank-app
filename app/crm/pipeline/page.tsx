@@ -98,16 +98,22 @@ export default async function PipelinePage({
         .reduce((sum, l) => sum + (l.estimatedValue || 0), 0);
 
     return (
-        <PipelineClient 
-            categories={categories}
-            states={states}
-            stages={stages}
-            initialLeads={leads}
-            metrics={{
-                totalLeads,
-                openPipeline,
-                wonPipeline
-            }}
-        />
+        <React.Suspense fallback={
+            <div className="crm-workspace" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <h3>Loading Sales Pipeline...</h3>
+            </div>
+        }>
+            <PipelineClient 
+                categories={categories}
+                states={states}
+                stages={stages}
+                initialLeads={leads}
+                metrics={{
+                    totalLeads,
+                    openPipeline,
+                    wonPipeline
+                }}
+            />
+        </React.Suspense>
     );
 }

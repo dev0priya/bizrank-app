@@ -90,13 +90,18 @@ export default function BusinessDetailClient({ business }: { business: any }) {
             {/* ACTION BAR */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
                 {business.google_maps_url && (
-                    <a href={business.google_maps_url} target="_blank" rel="noreferrer" className="btn-icon ripple hover-lift primary" style={{ flex: 1, minWidth: '160px', padding: '12px' }}>
+                    <a href={business.google_maps_url} target="_blank" rel="noopener noreferrer" className="btn-icon ripple hover-lift primary" style={{ flex: 1, minWidth: '160px', padding: '12px' }}>
                         <MapPin size={18} /> Open in Google Maps
                     </a>
                 )}
+                {!business.google_maps_url && (
+                    <button className="btn-icon ripple" disabled style={{ flex: 1, minWidth: '160px', padding: '12px', opacity: 0.5, cursor: 'not-allowed' }}>
+                        <MapPin size={18} /> Map Link Unavailable
+                    </button>
+                )}
                 {business.website ? (
-                    <a href={business.website} target="_blank" rel="noreferrer" className="btn-icon ripple hover-lift" style={{ flex: 1, minWidth: '160px', padding: '12px' }}>
-                        <Globe size={18} /> Visit Website
+                    <a href={business.website} target="_blank" rel="noopener noreferrer" className="btn-icon ripple hover-lift" style={{ flex: 1, minWidth: '160px', padding: '12px' }}>
+                        <Globe size={18} /> Official Website
                     </a>
                 ) : (
                     <button className="btn-icon ripple" disabled style={{ flex: 1, minWidth: '160px', padding: '12px', opacity: 0.5, cursor: 'not-allowed' }}>
@@ -127,6 +132,11 @@ export default function BusinessDetailClient({ business }: { business: any }) {
                     </h3>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Provider / Place ID</div>
+                            <span style={{ fontWeight: 500 }}>{business.provider || 'Unknown'}{business.place_id ? ` · ${business.place_id}` : ' · No verified place ID'}</span>
+                        </div>
+
                         <div>
                             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Full Address</div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>

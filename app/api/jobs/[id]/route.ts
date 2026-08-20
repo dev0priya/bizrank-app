@@ -42,11 +42,15 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         }
 
         if (runStatus.status === 'SUCCEEDED') {
-            console.log(`Apify Run ${runStatus.id} succeeded. Processing data...`);
+            console.log(`[APIFY_RUN_COMPLETED] Run ${runStatus.id} succeeded.`);
             
             const rawItems = await scraper.getDatasetItems(runStatus.defaultDatasetId);
+            console.log(`[APIFY_DATASET_READ] Retrieved ${rawItems.length} raw items from dataset ${runStatus.defaultDatasetId}`);
+            
             const searchCategory = job.query.split(',')[0]?.trim(); // Best effort from query label
             const processed = DataProcessor.processAndDeduplicate(rawItems, searchCategory);
+            console.log(`[DISCOVERY_NORMALIZED] Processed and deduplicated ${processed.length} valid business records.`);
+            
             const audited = await WebsiteAuditor.auditBusinesses(processed);
 
             // Fetch only the categories and relevant locations on-demand to optimize memory and speed
@@ -109,19 +113,30 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 const catInfo = job.categoryId
                     ? getCatInfo(categories.find(c => c.id === job.categoryId)?.name || null)
                     : getCatInfo(biz.category);
-                const cityId = job.cityId || getCityId(biz.city);
-                const stateId = job.stateId || getStateId(biz.state);
-                const countryId = job.countryId || getCountryId(biz.country);
+
+                const resolvedStateId = getStateId(biz.state);
+                const stateId = resolvedStateId || job.stateId; // Prefer the actual state of the business
+
+                // GEOGRAPHIC SCOPE VALIDATION: Enforce State isolation (e.g. Delhi vs Haryana vs Gujarat)
+                if (job.stateId && resolvedStateId && job.stateId !== resolvedStateId) {
+                    console.log(`[DISCOVERY_GEO_FILTERED] REJECTED_OUT_OF_STATE: ${biz.business_name} (Expected State ID ${job.stateId}, got ${resolvedStateId} for ${biz.state})`);
+                    continue; // Skip cross-state leak
+                }
+
+                const resolvedCityId = getCityId(biz.city);
+                const cityId = resolvedCityId || job.cityId;
+                const countryId = getCountryId(biz.country) || job.countryId;
                 const areaId = job.areaId || null;
                 const districtId = job.districtId || null;
 
-                // Determine website status
+                // Determine website status correctly for all providers
                 let websiteStatus: WebsiteStatus = 'UNKNOWN';
-                if (biz.website_exists && biz.website) {
-                    if (aiScore >= 60) websiteStatus = 'WEBSITE_VERIFIED';
-                    else if (aiScore > 0) websiteStatus = 'LOW_QUALITY_WEBSITE';
+                if (biz.website) {
+                    if (biz.website_exists && aiScore >= 60) websiteStatus = 'WEBSITE_VERIFIED';
+                    else if (biz.website_exists && aiScore > 0) websiteStatus = 'LOW_QUALITY_WEBSITE';
                     else websiteStatus = 'WEBSITE_FOUND';
                 } else if (!biz.website) {
+                    // Absent website field from scraper/API means no website listed
                     websiteStatus = 'NO_WEBSITE';
                 }
 
@@ -166,6 +181,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 }
 
                 const data = {
+                    provider: biz.provider || job.provider || 'apify',
                     place_id: biz.place_id,
                     business_name: biz.business_name,
                     category_id: categoryId,
@@ -208,6 +224,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                     await prisma.business.upsert({
                         where: { place_id: biz.place_id },
                         update: {
+                            provider: biz.provider || job.provider || 'apify',
                             job_id: job.id,
                             category_id: categoryId,
                             google_category: biz.google_category || biz.category,
@@ -225,6 +242,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                             review_count: biz.review_count,
                             phone_number: biz.phone_number,
                             website: biz.website,
+                            google_maps_url: biz.google_maps_url,
                             website_exists: biz.website_exists,
                             business_status: biz.business_status,
                             email: biz.email,
@@ -250,6 +268,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                         await prisma.business.update({
                             where: { id: existing.id },
                             data: {
+                                provider: biz.provider || job.provider || 'apify',
                                 job_id: job.id,
                                 opportunity_score: oppScore,
                                 opportunity_level: opportunityLevel,
@@ -259,6 +278,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                                 review_count: biz.review_count,
                                 phone_number: biz.phone_number,
                                 website: biz.website,
+                                google_maps_url: biz.google_maps_url,
                                 website_exists: biz.website_exists,
                                 business_status: biz.business_status,
                                 email: biz.email,

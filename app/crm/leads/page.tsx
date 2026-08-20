@@ -19,10 +19,16 @@ export default async function CRMLeadsPage() {
     });
 
     return (
-        <LeadsClient 
-            categories={categories} 
-            states={states} 
-            stages={stages} 
-        />
+        <React.Suspense fallback={
+            <div className="crm-workspace" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <h3>Loading Leads...</h3>
+            </div>
+        }>
+            <LeadsClient 
+                categories={categories} 
+                states={states} 
+                stages={stages} 
+            />
+        </React.Suspense>
     );
 }

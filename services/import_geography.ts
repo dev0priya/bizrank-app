@@ -297,11 +297,11 @@ let totalCensusCities = 0;
 let totalLgdStates = 0;
 let totalLgdDistricts = 0;
 let totalLgdSubdistricts = 0;
-let totalLgdBlocks = 0;
+const totalLgdBlocks = 0;
 
 let reconciledAddedDistricts = 0;
 let reconciledRenamedDistricts = 0;
-let reconciledConflicts = 0;
+const reconciledConflicts = 0;
 
 // Phase 3 & 4: Parse & Reconcile
 async function parseAndReconcile(
@@ -583,7 +583,7 @@ async function parseAndReconcile(
         const stateName = lgdStates.find(s => s.stateCode === lsd.stateCode)?.stateNameEnglish || 'Unknown State';
         const districtName = lgdDistricts.find(d => d.districtCode === lsd.districtCode)?.districtNameEnglish || 'Unknown District';
         
-        let matchedCensus = censusSubdistMapByName.get(normName);
+        const matchedCensus = censusSubdistMapByName.get(normName);
         if (matchedCensus) {
             const censusCode = matchedCensus.key.split('_')[2];
             const isRenamed = matchedCensus.name !== lsd.subdistrictNameEnglish;
@@ -716,7 +716,7 @@ async function importToDatabase(
 
         const normName = normalizeLocationName(d.name);
         const dbKey = `${stateId}_${normName}`;
-        let districtId = districtDbMap.get(dbKey);
+        const districtId = districtDbMap.get(dbKey);
 
         if (!districtId) {
             districtsToCreate.push({
@@ -782,7 +782,7 @@ async function importToDatabase(
 
         const normName = normalizeLocationName(sd.name);
         const dbKey = `${districtId}_${normName}`;
-        let subdistrictId = subdistrictDbMap.get(dbKey);
+        const subdistrictId = subdistrictDbMap.get(dbKey);
 
         if (!subdistrictId) {
             subdistrictsToCreate.push({

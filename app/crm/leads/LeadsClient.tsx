@@ -7,6 +7,7 @@ import {
   DollarSign, Check, ShieldAlert, Calendar
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 export default function LeadsClient({ 
     categories, 
@@ -18,6 +19,7 @@ export default function LeadsClient({
     stages: any[]; 
 }) {
     const [leads, setLeads] = useState<any[]>([]);
+    const searchParams = useSearchParams();
     
     // Pagination & Loading
     const [page, setPage] = useState(1);
@@ -104,6 +106,21 @@ export default function LeadsClient({
     // Sorting
     const [sortField, setSortField] = useState('createdAt');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+    useEffect(() => {
+        const filter = searchParams.get('filter');
+        if (filter === 'mine') {
+            const myUsername = localStorage.getItem('bizrank_active_username') || 'admin@bizrank.com';
+            setSelectedAssignee(myUsername);
+        } else if (filter === 'hot') {
+            setSelectedPriority('A');
+        } else if (filter === 'unassigned') {
+            setSelectedAssignee('UNASSIGNED');
+        } else if (filter === 'recent') {
+            setSortField('createdAt');
+            setSortOrder('desc');
+        }
+    }, [searchParams]);
 
     // Row Saving States
     const [savingLeadId, setSavingLeadId] = useState<number | null>(null);

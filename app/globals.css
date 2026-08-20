@@ -80,6 +80,8 @@ body {
   transition: width 0.3s ease, padding 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 50;
   height: 100vh;
+  position: sticky;
+  top: 0;
 }
 
 .sidebar-logo {
@@ -546,4 +548,8 @@ h2 {
   transform: scale(0, 0);
   opacity: .2;
   transition: 0s;
+}
+@media (max-width: 900px) {
+  .dashboard-detail-grid { grid-template-columns: 1fr !important; }
+  .quick-add-label { display: none; }
 }

@@ -73,6 +73,24 @@ export async function POST(request: Request) {
       }
     });
 
+    // Create DiscoverySearchHistory log
+    await prisma.discoverySearchHistory.create({
+      data: {
+        locationName: locationName || area || city || 'Unknown',
+        categoryName: category || null,
+        filters: JSON.stringify({
+          rating: { min: body.minRating || null, max: body.maxRating || null },
+          reviews: { min: body.minReviews || null, max: body.maxReviews || null },
+          website: body.websiteFilter || null,
+          phone: body.phoneFilter || null,
+          opportunity: body.opportunityFilter || null,
+        }),
+        provider,
+        resultCount: maxResults || 10,
+        status: 'RUNNING'
+      }
+    }).catch(err => console.error('Failed to log search history:', err));
+
     return NextResponse.json({
       jobId: job.id,
       message: 'Discovery job started successfully.',

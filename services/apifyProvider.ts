@@ -21,7 +21,19 @@ export class ApifyProvider implements BusinessProvider {
         if (state) searchParts.push(state);
         if (country) searchParts.push(country);
 
-        const searchQuery = searchParts.join(", ");
+        // Split tokens and deduplicate to form a clean query e.g. "Salon, Rohini, Delhi, India"
+        const tokens: string[] = [];
+        for (const part of searchParts) {
+            if (!part) continue;
+            const subTokens = part.split(',').map(s => s.trim()).filter(Boolean);
+            for (const token of subTokens) {
+                if (!tokens.map(t => t.toLowerCase()).includes(token.toLowerCase())) {
+                    tokens.push(token);
+                }
+            }
+        }
+
+        const searchQuery = tokens.join(", ");
         if (!searchQuery) {
             throw new Error("At least one search parameter must be provided.");
         }

@@ -45,7 +45,7 @@ export class GooglePlacesProvider implements BusinessProvider {
 
         const { country, state, district, city, area, category, maxResults = 20 } = params;
         
-        let queryParts = [];
+        const queryParts = [];
         if (category) queryParts.push(category);
         if (area) queryParts.push(area);
         if (city) queryParts.push(city);
@@ -57,46 +57,57 @@ export class GooglePlacesProvider implements BusinessProvider {
         const items = [];
 
         try {
-            const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${this.apiKey}`;
-            const searchRes = await fetch(searchUrl);
+            const searchRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Goog-Api-Key': this.apiKey,
+                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.websiteUri,places.internationalPhoneNumber,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.businessStatus,places.types'
+                },
+                body: JSON.stringify({ textQuery: query, maxResultCount: Math.min(maxResults, 20) })
+            });
             const searchData = await searchRes.json();
 
-            if (searchData.status !== 'OK') {
+            if (!searchRes.ok) {
                 console.warn('[GooglePlacesProvider] Places Search API Error or no results:', searchData.status);
                 throw new Error(`Google Places API returned status: ${searchData.status}`);
             }
 
-            const places = searchData.results || [];
+            const places = searchData.places || [];
             const limitedPlaces = places.slice(0, maxResults);
 
             for (const place of limitedPlaces) {
-                const placeId = place.place_id;
-                
-                const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,rating,formatted_phone_number,website,geometry,formatted_address,user_ratings_total&key=${this.apiKey}`;
-                const detailsRes = await fetch(detailsUrl);
+                const placeId = place.id;
+                if (!placeId) continue;
+                const detailsRes = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
+                    headers: {
+                        'X-Goog-Api-Key': this.apiKey,
+                        'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,googleMapsUri,websiteUri,internationalPhoneNumber,nationalPhoneNumber,rating,userRatingCount,businessStatus,types'
+                    }
+                });
                 const detailsData = await detailsRes.json();
 
-                if (detailsData.status !== 'OK') continue;
-
-                const d = detailsData.result;
+                if (!detailsRes.ok) continue;
+                const d = detailsData;
                 
                 items.push({
+                    provider: 'google_places',
                     placeId: placeId,
-                    title: d.name,
+                    title: d.displayName?.text,
                     categoryName: category,
                     address: d.formatted_address,
                     neighborhood: area,
                     city: city,
                     state: state,
                     countryCode: "IN",
-                    phoneUnformatted: d.formatted_phone_number || null,
-                    website: d.website || null,
-                    url: `https://www.google.com/maps/place/?q=place_id:${placeId}`,
+                    phoneUnformatted: d.internationalPhoneNumber || d.nationalPhoneNumber || null,
+                    website: d.websiteUri || null,
+                    googleMapsUri: d.googleMapsUri || null,
                     totalScore: d.rating || null,
-                    reviewsCount: d.user_ratings_total || 0,
+                    reviewsCount: d.userRatingCount || 0,
                     location: {
-                        lat: d.geometry?.location?.lat || null,
-                        lng: d.geometry?.location?.lng || null
+                        lat: d.location?.latitude || null,
+                        lng: d.location?.longitude || null
                     }
                 });
             }

@@ -121,6 +121,82 @@ export async function GET() {
             count: g._count.id
         }));
 
+        // 7. Connected dashboard worklists. These are intentionally derived from
+        // the discovery and CRM records rather than a separate reporting store.
+        const [businessesDiscovered, qualifiedBusinesses, websiteOpportunities] = await Promise.all([
+            prisma.business.count(),
+            prisma.business.count({ where: { discovery_status: 'Qualified' } }),
+            prisma.business.count({
+                where: {
+                    opportunity_eligible: true,
+                    opportunity_level: { in: ['HIGH', 'MEDIUM'] }
+                }
+            })
+        ]);
+
+        const stageCount = (match: string) =>
+            leadsByStage.find(stage => stage.stageName.toLowerCase().includes(match))?.count || 0;
+
+        const salesFunnel = [
+            { label: 'Businesses Discovered', count: businessesDiscovered },
+            { label: 'Qualified Businesses', count: qualifiedBusinesses },
+            { label: 'Added to CRM', count: totalLeads },
+            { label: 'Contacted', count: stageCount('contacted') },
+            { label: 'Interested', count: stageCount('interested') },
+            { label: 'Meetings', count: stageCount('meeting') },
+            { label: 'Proposals', count: stageCount('proposal') },
+            { label: 'Won', count: wonDealsCount }
+        ];
+
+        const pipelineSummary = stages.map(stage => ({
+            stageId: stage.id,
+            stageName: stage.name,
+            leadCount: stage._count.leads,
+            pipelineValue: pipelineValueByStageMap.get(stage.name) || 0
+        }));
+
+        const followUpWhere = {
+            status: 'PENDING' as const,
+            dueAt: { lte: todayEnd }
+        };
+        const [todayFollowUpsList, hotLeadsList, recentActivities] = await Promise.all([
+            prisma.followUp.findMany({
+                where: followUpWhere,
+                orderBy: { dueAt: 'asc' },
+                take: 10,
+                include: {
+                    crmLead: { include: { business: true } },
+                    contact: true
+                }
+            }),
+            prisma.cRMLead.findMany({
+                where: {
+                    OR: [
+                        { priority: 'A' },
+                        { tags: { some: { tag: { name: 'HOT' } } } }
+                    ]
+                },
+                orderBy: [{ leadScore: 'desc' }, { updatedAt: 'desc' }],
+                take: 10,
+                include: {
+                    business: { include: { category: true, city: true, state: true } },
+                    followUps: {
+                        where: { status: 'PENDING' },
+                        orderBy: { dueAt: 'asc' },
+                        take: 1
+                    }
+                }
+            }),
+            prisma.activity.findMany({
+                orderBy: { occurredAt: 'desc' },
+                take: 10,
+                include: {
+                    crmLead: { include: { business: true } },
+                    contact: true
+                }
+            })
+        ]);
+
         return NextResponse.json({
             metrics: {
                 totalLeads,
@@ -135,13 +211,49 @@ export async function GET() {
                 lostValue,
                 lostDealsCount,
                 conversionRate,
-                averageDealValue
+                averageDealValue,
+                businessesDiscovered,
+                qualifiedBusinesses,
+                websiteOpportunities,
+                crmAdded: totalLeads,
+                discoveryConversionRate: businessesDiscovered > 0 ? (totalLeads / businessesDiscovered) * 100 : 0
             },
             charts: {
                 leadsByStage,
                 pipelineValueByStage,
                 activitiesByType
-            }
+            },
+            salesFunnel,
+            pipelineSummary,
+            todayFollowUps: todayFollowUpsList.map(item => ({
+                id: item.id,
+                dueAt: item.dueAt,
+                leadId: item.crmLeadId,
+                businessName: item.crmLead.business.business_name,
+                contactName: item.contact?.name || null,
+                owner: item.assignedTo || item.crmLead.assignedTo || null,
+                status: item.dueAt < todayStart ? 'OVERDUE' : 'DUE_TODAY'
+            })),
+            hotLeads: hotLeadsList.map(lead => ({
+                id: lead.id,
+                businessName: lead.business.business_name,
+                location: [lead.business.city?.name, lead.business.state?.name].filter(Boolean).join(', ') || null,
+                category: lead.business.category?.displayName || lead.business.category?.name || lead.business.google_category || null,
+                leadScore: lead.leadScore,
+                websiteStatus: lead.business.website_status,
+                owner: lead.assignedTo || null,
+                nextFollowUp: lead.followUps[0]?.dueAt || null
+            })),
+            recentActivities: recentActivities.map(activity => ({
+                id: activity.id,
+                type: activity.type,
+                summary: activity.summary,
+                occurredAt: activity.occurredAt,
+                leadId: activity.crmLeadId,
+                businessName: activity.crmLead.business.business_name,
+                contactName: activity.contact?.name || null,
+                owner: activity.performedBy
+            }))
         });
     } catch (error: any) {
         console.error('Failed to load dashboard data:', error);

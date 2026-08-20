@@ -104,7 +104,7 @@ export async function PATCH(
                 });
 
                 // Sync legacy crm_status / discovery_status in Business table to prevent dashboard regression
-                let legacyStatus = targetStage.name; // 'Closed Won' or 'Closed Lost'
+                const legacyStatus = targetStage.name; // 'Closed Won' or 'Closed Lost'
                 await tx.business.update({
                     where: { id: deal.crmLead.businessId },
                     data: {

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
     Calendar, CheckCircle, Clock, Search, Filter, 
     ArrowLeft, User, Phone, MessageCircle, MoreVertical, 
@@ -10,11 +10,23 @@ import {
     Play, Edit3, X, HelpCircle, UserCheck
 } from 'lucide-react';
 
-export default function FollowUpsPage() {
+function FollowUpsContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
 
     // Query states
     const [tab, setTab] = useState<'TODAY' | 'UPCOMING' | 'OVERDUE' | 'COMPLETED' | 'ALL'>('TODAY');
+
+    useEffect(() => {
+        const filter = searchParams.get('filter');
+        if (filter) {
+            const upperTab = filter.toUpperCase();
+            if (['TODAY', 'UPCOMING', 'OVERDUE', 'COMPLETED', 'ALL'].includes(upperTab)) {
+                setTab(upperTab as any);
+            }
+        }
+    }, [searchParams]);
+
     const [q, setQ] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
     const [priority, setPriority] = useState('');
@@ -751,5 +763,17 @@ export default function FollowUpsPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function FollowUpsPage() {
+    return (
+        <React.Suspense fallback={
+            <div className="crm-workspace" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <h3>Loading Follow-ups & Tasks...</h3>
+            </div>
+        }>
+            <FollowUpsContent />
+        </React.Suspense>
     );
 }

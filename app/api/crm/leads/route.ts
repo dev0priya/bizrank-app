@@ -25,7 +25,11 @@ export async function GET(request: Request) {
         if (role === 'SALES_AGENT') {
             where.assignedTo = username;
         } else if (assignedTo) {
-            where.assignedTo = assignedTo;
+            if (assignedTo === 'UNASSIGNED') {
+                where.assignedTo = null;
+            } else {
+                where.assignedTo = assignedTo;
+            }
         }
 
         // Search criteria
