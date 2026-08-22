@@ -553,3 +553,14 @@ h2 {
   .dashboard-detail-grid { grid-template-columns: 1fr !important; }
   .quick-add-label { display: none; }
 }
+
+/* Discovery Layout Grid */
+.discovery-layout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+@media (max-width: 1024px) {
+  .discovery-layout-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

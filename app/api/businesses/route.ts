@@ -49,6 +49,11 @@ export async function GET(request: Request) {
     if (websiteStatus) where.website_status = websiteStatus;
     if (discoveryStatus) where.discovery_status = discoveryStatus;
 
+    const businessStatus = searchParams.get('businessStatus');
+    if (businessStatus === 'ACTIVE') {
+      where.business_status = { in: ['OPERATIONAL', 'Active', 'active', 'operational'] };
+    }
+
     // Default: only show opportunity-eligible businesses in sales view
     if (opportunityEligibleParam === 'false') {
       // Show all including non-eligible

@@ -31,18 +31,19 @@ Completed:
 - Phase 14: AI CRM Workspace (PASS)
 - Business Discovery + Geography Integrity & Scopes Rebuild (PASS)
 - UI Layout and Sidebar Clipping Fixes (PASS)
+- Business Discovery Premium UI Redesign & Multi-Provider selector integration (PASS)
 
 In Progress:
-- Capture a complete `npm run test:e2e` result. The live workflow reached discovery-job polling, but the execution host did not return its final output.
+None
 
 Blocked:
 None
 
 Next:
-Capture the end-to-end test's final output, then proceed to deployment.
+Run final deployment testing.
 
 Last Updated:
-2026-08-19
+2026-08-22
 
 ---
 

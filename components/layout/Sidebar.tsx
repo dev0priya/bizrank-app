@@ -234,9 +234,9 @@ export function Sidebar() {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'space-between',
-                              background: 'transparent',
+                              background: isActive ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
                               border: 'none',
-                              color: 'var(--text-muted)',
+                              color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
                               borderRadius: '8px',
                               fontSize: '14px',
                               fontWeight: 500

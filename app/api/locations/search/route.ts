@@ -20,8 +20,41 @@ export async function GET(request: Request) {
     const stateId = parseInt(searchParams.get('stateId') || '0');
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 20);
 
-    // Require at least 1 character to search
+    // If q is empty but stateId is provided, return top state locations
     if (!q) {
+      if (stateId) {
+        const state = await prisma.state.findUnique({ where: { id: stateId } });
+        if (!state) return NextResponse.json({ error: 'State not found' }, { status: 404 });
+        const topLocations = await prisma.searchLocation.findMany({
+          where: { stateId },
+          orderBy: [
+            { type: 'asc' },
+            { name: 'asc' },
+          ],
+          take: limit || 12,
+          include: {
+            state: { select: { id: true, name: true, type: true } },
+            city: { select: { id: true, name: true, latitude: true, longitude: true } },
+            area: { select: { id: true, name: true } },
+          },
+        });
+        const data = topLocations.map(loc => ({
+          id: loc.id,
+          name: loc.name,
+          displayName: loc.displayName,
+          type: loc.type,
+          stateId: loc.stateId,
+          stateName: loc.state.name,
+          cityId: loc.cityId,
+          cityName: loc.city?.name || null,
+          areaId: loc.areaId,
+          areaName: loc.area?.name || null,
+          latitude: loc.latitude || loc.city?.latitude || null,
+          longitude: loc.longitude || loc.city?.longitude || null,
+          source: loc.source,
+        }));
+        return NextResponse.json({ data, total: data.length, stateId, stateName: state.name });
+      }
       return NextResponse.json({ data: [], message: 'Query required' });
     }
 
