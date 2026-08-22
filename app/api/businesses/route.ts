@@ -108,7 +108,7 @@ export async function GET(request: Request) {
           state: true,
           country: true,
           job: { select: { id: true, query: true, provider: true } },
-          crm_lead: { select: { id: true } },
+          crm_lead: { select: { id: true, assignedTo: true } },
         },
         orderBy,
       }),

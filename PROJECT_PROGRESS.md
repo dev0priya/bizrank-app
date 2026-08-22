@@ -32,6 +32,8 @@ Completed:
 - Business Discovery + Geography Integrity & Scopes Rebuild (PASS)
 - UI Layout and Sidebar Clipping Fixes (PASS)
 - Business Discovery Premium UI Redesign & Multi-Provider selector integration (PASS)
+- Final Approved Sidebar Structure and Layout Integration (PASS)
+- Business Discovery Lead Assignment & Allowed Sales Assignees Verification (PASS)
 
 In Progress:
 None

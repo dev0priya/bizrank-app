@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, Search, Users, Kanban, CalendarClock, Contact, 
   Activity, Coins, BarChart3, Sparkles, CheckSquare, UsersRound, 
-  Tags, Zap, Settings, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X
+  Tags, Settings, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Briefcase
 } from 'lucide-react';
 import { useMobileMenu } from '../../context/MobileMenuContext';
 
@@ -123,14 +123,14 @@ export function Sidebar() {
       { name: 'Contacts', href: '/crm/contacts', icon: Contact },
       { name: 'Activities', href: '/crm/activities', icon: Activity },
       { name: 'Deals', href: '/crm/deals', icon: Coins },
+      { name: 'Projects', href: '/crm/projects', icon: Briefcase },
       { name: 'Analytics', href: '/analytics', icon: BarChart3 },
       { name: 'AI Sales Assistant', href: '/crm/ai', icon: Sparkles }
     ] as SidebarItem[],
-    MANAGEMENT: [
+    'TEAM & WORK': [
       { name: 'Tasks', href: '/crm/tasks', icon: CheckSquare },
       { name: 'Team', href: '/crm/team', icon: UsersRound },
-      { name: 'Tags', href: '/crm/tags', icon: Tags },
-      { name: 'Automations', href: '/crm/automations', icon: Zap }
+      { name: 'Tags', href: '/crm/tags', icon: Tags }
     ] as SidebarItem[],
     SETTINGS: [
       { name: 'CRM Settings', href: '/settings', icon: Settings },

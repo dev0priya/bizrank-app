@@ -57,7 +57,7 @@ interface BusinessResult {
   city?: { name: string };
   state?: { name: string };
   discovery_status: string;
-  crm_lead?: { id: number } | null;
+  crm_lead?: { id: number; assignedTo?: string | null } | null;
 }
 
 interface JobRecord {
@@ -158,6 +158,14 @@ export default function BusinessDiscoveryPage() {
   const [maxResults, setMaxResults] = useState(20);
   const [selectedProvider, setSelectedProvider] = useState('apify');
   const [sortBy, setSortBy] = useState('opportunity_score');
+
+  // Assignment states
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showCrmPromptModal, setShowCrmPromptModal] = useState(false);
+  const [assigningBusiness, setAssigningBusiness] = useState<BusinessResult | null>(null);
+  const [selectedAssignee, setSelectedAssignee] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignError, setAssignError] = useState('');
 
   // Job state
   const [jobId, setJobId] = useState<number | null>(null);
@@ -500,13 +508,90 @@ export default function BusinessDiscoveryPage() {
       const data = await res.json();
       if (res.ok) {
         setBusinesses(prev => prev.map(b =>
-          b.id === businessId ? { ...b, discovery_status: 'Qualified', crm_lead: { id: data.leadId } } : b
+          b.id === businessId ? { ...b, discovery_status: 'Qualified', crm_lead: { id: data.leadId, assignedTo: null } } : b
         ));
       } else {
         alert(`CRM Error: ${data.error}`);
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleAssignClick = (biz: BusinessResult) => {
+    setAssigningBusiness(biz);
+    setAssignError('');
+    if (!biz.crm_lead) {
+      setShowCrmPromptModal(true);
+    } else {
+      setSelectedAssignee(biz.crm_lead.assignedTo || '');
+      setShowAssignModal(true);
+    }
+  };
+
+  const handleSaveAssignment = async () => {
+    if (!assigningBusiness || !assigningBusiness.crm_lead) return;
+    if (!selectedAssignee) {
+      setAssignError('Please select a team member.');
+      return;
+    }
+
+    setAssignLoading(true);
+    setAssignError('');
+
+    try {
+      const res = await fetch(`/api/crm/leads/${assigningBusiness.crm_lead.id}/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedTo: selectedAssignee })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBusinesses(prev => prev.map(b =>
+          b.id === assigningBusiness.id 
+            ? { ...b, crm_lead: { ...b.crm_lead!, assignedTo: selectedAssignee } }
+            : b
+        ));
+        setShowAssignModal(false);
+      } else {
+        setAssignError(data.error || 'Unable to assign this lead. Please try again.');
+      }
+    } catch (e: any) {
+      console.error(e);
+      setAssignError('Unable to assign this lead. Please try again.');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const handlePromoteAndOpenAssign = async () => {
+    if (!assigningBusiness) return;
+    setAssignLoading(true);
+    try {
+      const res = await fetch('/api/crm/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: assigningBusiness.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const updatedBiz = { 
+          ...assigningBusiness, 
+          discovery_status: 'Qualified', 
+          crm_lead: { id: data.leadId, assignedTo: null } 
+        };
+        setBusinesses(prev => prev.map(b => b.id === assigningBusiness.id ? updatedBiz : b));
+        setAssigningBusiness(updatedBiz);
+        setShowCrmPromptModal(false);
+        setSelectedAssignee('');
+        setShowAssignModal(true);
+      } else {
+        alert(`CRM Error: ${data.error}`);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAssignLoading(false);
     }
   };
 
@@ -937,9 +1022,14 @@ export default function BusinessDiscoveryPage() {
                     }}
                   >
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
                         <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff', margin: 0 }}>{biz.business_name}</h4>
                         <OpportunityBadge level={biz.opportunity_level} score={biz.opportunity_score} />
+                        {biz.crm_lead?.assignedTo && (
+                          <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(52,211,153,0.15)', color: '#34d399', padding: '3px 8px', borderRadius: '6px' }}>
+                            Assigned to: {biz.crm_lead.assignedTo}
+                          </span>
+                        )}
                       </div>
                       
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '13px', color: '#9ca3af' }}>
@@ -991,21 +1081,46 @@ export default function BusinessDiscoveryPage() {
                         </span>
                       )}
 
-                      {biz.crm_lead ? (
-                        <span style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#10b981', padding: '8px', background: 'rgba(16,185,129,0.1)', borderRadius: '8px' }}>
-                          ✓ In CRM
-                        </span>
+                      {!biz.crm_lead ? (
+                        <>
+                          <button
+                            onClick={() => handleAddToCRM(biz.id)}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                              padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                              background: '#2563eb', color: '#ffffff', border: 'none', cursor: 'pointer'
+                            }}
+                          >
+                            <Plus size={14} /> Add to CRM
+                          </button>
+                          <button
+                            onClick={() => handleAssignClick(biz)}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                              padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                              background: '#1f293d', color: '#60a5fa', border: '1px solid #283754', cursor: 'pointer'
+                            }}
+                          >
+                            Assign
+                          </button>
+                        </>
                       ) : (
-                        <button
-                          onClick={() => handleAddToCRM(biz.id)}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                            padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                            background: '#2563eb', color: '#ffffff', border: 'none', cursor: 'pointer'
-                          }}
-                        >
-                          <Plus size={14} /> Add to CRM
-                        </button>
+                        <>
+                          <span style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#10b981', padding: '8px', background: 'rgba(16,185,129,0.1)', borderRadius: '8px' }}>
+                            ✓ In CRM
+                          </span>
+                          <button
+                            onClick={() => handleAssignClick(biz)}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                              padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                              background: '#1f293d', color: biz.crm_lead.assignedTo ? '#34d399' : '#60a5fa',
+                              border: '1px solid #283754', cursor: 'pointer'
+                            }}
+                          >
+                            {biz.crm_lead.assignedTo ? `Reassign` : `Assign`}
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -1188,6 +1303,104 @@ export default function BusinessDiscoveryPage() {
                   <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: '#1f293d', color: '#60a5fa' }}>{loc.type}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CRM PROMPT MODAL */}
+      {showCrmPromptModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div style={{ width: '100%', maxWidth: '440px', background: '#111827', border: '1px solid #1f293d', borderRadius: '16px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#ffffff', margin: '0 0 12px 0' }}>
+              Add to CRM Required
+            </h3>
+            <p style={{ fontSize: '14px', color: '#9ca3af', margin: '0 0 20px 0', lineHeight: 1.5 }}>
+              Add this business to CRM before assigning it.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                onClick={() => setShowCrmPromptModal(false)}
+                style={{ padding: '8px 16px', borderRadius: '8px', background: '#1f293d', color: '#9ca3af', border: '1px solid #283754', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePromoteAndOpenAssign}
+                disabled={assignLoading}
+                style={{ padding: '8px 16px', borderRadius: '8px', background: '#2563eb', color: '#ffffff', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {assignLoading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add to CRM
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ASSIGN BUSINESS MODAL */}
+      {showAssignModal && assigningBusiness && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div style={{ width: '100%', maxWidth: '440px', background: '#111827', border: '1px solid #1f293d', borderRadius: '16px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+                Assign Business
+              </h3>
+              <button onClick={() => setShowAssignModal(false)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '13px', color: '#9ca3af', marginBottom: '4px' }}>Business Name</div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#ffffff' }}>{assigningBusiness.business_name}</div>
+            </div>
+
+            {assigningBusiness.crm_lead?.assignedTo && (
+              <div style={{ marginBottom: '20px', padding: '10px 14px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', fontSize: '13px' }}>
+                <span style={{ color: '#9ca3af' }}>Current Assignee: </span>
+                <strong style={{ color: '#60a5fa' }}>{assigningBusiness.crm_lead.assignedTo}</strong>
+              </div>
+            )}
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', fontSize: '13px', color: '#9ca3af', marginBottom: '10px', fontWeight: 600 }}>Select Team Member</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {['Simran Kaur', 'Sakshi Sharma', 'Sumit Chaudhary'].map(name => (
+                  <label key={name} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: '#162032', border: selectedAssignee === name ? '1px solid #3b82f6' : '1px solid #283754', borderRadius: '10px', transition: 'all 0.2s' }}>
+                    <input
+                      type="radio"
+                      name="assignee"
+                      value={name}
+                      checked={selectedAssignee === name}
+                      onChange={() => setSelectedAssignee(name)}
+                      style={{ accentColor: '#3b82f6' }}
+                    />
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: selectedAssignee === name ? '#ffffff' : '#d1d5db' }}>{name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {assignError && (
+              <div style={{ color: '#ef4444', fontSize: '13px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AlertCircle size={14} /> {assignError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                onClick={() => setShowAssignModal(false)}
+                style={{ padding: '8px 16px', borderRadius: '8px', background: '#1f293d', color: '#9ca3af', border: '1px solid #283754', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveAssignment}
+                disabled={assignLoading}
+                style={{ padding: '8px 16px', borderRadius: '8px', background: '#2563eb', color: '#ffffff', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {assignLoading ? <Loader2 size={14} className="animate-spin" /> : null} Assign
+              </button>
             </div>
           </div>
         </div>
