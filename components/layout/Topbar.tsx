@@ -52,23 +52,41 @@ export function Topbar() {
 
   const handleRoleChange = (role: string) => {
     let username = 'admin@bizrank.com';
+    let realRole = role;
+
     if (role === 'MANAGER') username = 'sales.manager@bizrank.com';
     else if (role === 'SALES_AGENT') username = 'sales.agent@bizrank.com';
     else if (role === 'VIEWER') username = 'viewer@bizrank.com';
+    else if (role === 'DEVELOPER_SIMRAN') { username = 'simran@bizrank.com'; realRole = 'DEVELOPER'; }
+    else if (role === 'DEVELOPER_SAKSHI') { username = 'sakshi@bizrank.com'; realRole = 'DEVELOPER'; }
+    else if (role === 'DEVELOPER_SUMIT') { username = 'sumit@bizrank.com'; realRole = 'DEVELOPER'; }
+    else if (role === 'COMMUNICATION_SWATI') { username = 'swati@bizrank.com'; realRole = 'COMMUNICATION'; }
 
-    localStorage.setItem('bizrank_active_role', role);
+    localStorage.setItem('bizrank_active_role', realRole);
     localStorage.setItem('bizrank_active_username', username);
+    localStorage.setItem('bizrank_display_role', role); // save selection for dropdown state display
     setActiveRole(role);
     setActiveUsername(username);
     
     window.location.reload();
   };
 
+  useEffect(() => {
+    const role = localStorage.getItem('bizrank_display_role') || localStorage.getItem('bizrank_active_role') || 'ADMIN';
+    const username = localStorage.getItem('bizrank_active_username') || 'admin@bizrank.com';
+    setActiveRole(role);
+    setActiveUsername(username);
+  }, []);
+
   const getProfileInitials = () => {
     switch (activeRole) {
       case 'MANAGER': return 'M';
       case 'SALES_AGENT': return 'S';
       case 'VIEWER': return 'V';
+      case 'DEVELOPER_SIMRAN': return 'Si';
+      case 'DEVELOPER_SAKSHI': return 'Sa';
+      case 'DEVELOPER_SUMIT': return 'Su';
+      case 'COMMUNICATION_SWATI': return 'Sw';
       default: return 'A';
     }
   };
@@ -78,6 +96,10 @@ export function Topbar() {
       case 'MANAGER': return 'Sales Manager';
       case 'SALES_AGENT': return 'Sales Agent';
       case 'VIEWER': return 'Viewer User';
+      case 'DEVELOPER_SIMRAN': return 'Simran Kaur (Dev)';
+      case 'DEVELOPER_SAKSHI': return 'Sakshi Sharma (Dev)';
+      case 'DEVELOPER_SUMIT': return 'Sumit Chaudhary (Dev)';
+      case 'COMMUNICATION_SWATI': return 'Swati Chaudhary (Comm)';
       default: return 'Admin User';
     }
   };
@@ -138,6 +160,10 @@ export function Topbar() {
             <option value="MANAGER" style={{ background: '#1e293b' }}>Sales Manager</option>
             <option value="SALES_AGENT" style={{ background: '#1e293b' }}>Sales Agent</option>
             <option value="VIEWER" style={{ background: '#1e293b' }}>Viewer (Read Only)</option>
+            <option value="DEVELOPER_SIMRAN" style={{ background: '#1e293b' }}>Simran Kaur (Developer)</option>
+            <option value="DEVELOPER_SAKSHI" style={{ background: '#1e293b' }}>Sakshi Sharma (Developer)</option>
+            <option value="DEVELOPER_SUMIT" style={{ background: '#1e293b' }}>Sumit Chaudhary (Developer)</option>
+            <option value="COMMUNICATION_SWATI" style={{ background: '#1e293b' }}>Swati Chaudhary (Comm)</option>
           </select>
         </div>
 

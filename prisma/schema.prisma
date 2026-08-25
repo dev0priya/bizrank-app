@@ -354,6 +354,23 @@ model CRMLead {
   estimatedValue    Float           @default(0.0)
   assignedTo        String?         // Assigned agent identifier (Username/Email)
   
+  // Developer assignment fields
+  developerId       String?
+  developer         User?           @relation("DeveloperLeads", fields: [developerId], references: [id], onDelete: SetNull)
+  websiteStatus     String          @default("ASSIGNED") // "ASSIGNED" | "IN_PROGRESS" | "COMPLETED"
+  websiteUrl        String?
+  websiteCompletedAt DateTime?
+  
+  // Swati handoff fields
+  swatiId           String?
+  swati             User?           @relation("SwatiLeads", fields: [swatiId], references: [id], onDelete: SetNull)
+  handoffStatus     String          @default("PENDING") // "PENDING" | "HANDED_OVER" | "IN_PROGRESS" | "CLOSED"
+  handoffDate       DateTime?
+  
+  // Client communication & overall status tracking
+  clientStatus      String          @default("Follow-up Required") // "Interested" | "Not Interested" | "Follow-up Required" | "No Response" | "Closed"
+  isArchived        Boolean         @default(false)
+
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -368,6 +385,8 @@ model CRMLead {
   @@index([pipelineStageId])
   @@index([assignedTo])
   @@index([priority])
+  @@index([developerId])
+  @@index([swatiId])
   @@map("crm_leads")
 }
 
@@ -594,4 +613,19 @@ model DiscoverySavedSearch {
   createdAt         DateTime @default(now())
 
   @@map("discovery_saved_searches")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  name      String
+  role      String   // "DEVELOPER" | "COMMUNICATION" | "ADMIN" | "MANAGER" | "VIEWER"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedDeveloperLeads CRMLead[] @relation("DeveloperLeads")
+  assignedSwatiLeads     CRMLead[] @relation("SwatiLeads")
+
+  @@map("users")
 }

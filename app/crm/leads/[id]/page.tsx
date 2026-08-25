@@ -20,8 +20,9 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Dynamic Options (fetched for stage transitions)
+    // Dynamic Options (fetched for stage transitions & developer assignment)
     const [stages, setStages] = useState<any[]>([]);
+    const [developers, setDevelopers] = useState<any[]>([]);
 
     // Local Copied Flag
     const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -199,6 +200,18 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         }
     };
 
+    const loadDevelopers = async () => {
+        try {
+            const res = await fetch('/api/crm/users');
+            if (res.ok) {
+                const uData = await res.json();
+                setDevelopers(uData.filter((u: any) => u.role === 'DEVELOPER'));
+            }
+        } catch (err) {
+            console.error('Failed to load developers:', err);
+        }
+    };
+
     useEffect(() => {
         if (isNaN(leadId)) {
             setError('Invalid Lead ID');
@@ -207,6 +220,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         }
         loadLeadDetails();
         loadStages();
+        loadDevelopers();
     }, [leadId]);
 
     useEffect(() => {
@@ -239,6 +253,37 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
             await loadLeadDetails();
         } catch (err: any) {
             alert(err.message || 'Failed to update field.');
+        }
+    };
+
+    const handleDeveloperUpdate = async (developerId: string) => {
+        setSaving(true);
+        try {
+            if (!developerId) {
+                // Clear assignment using PATCH
+                const res = await fetch(`/api/crm/leads/${leadId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ assignedTo: null })
+                });
+                if (!res.ok) throw new Error('Failed to clear developer assignment');
+            } else {
+                // Assign using assign endpoint
+                const res = await fetch(`/api/crm/leads/${leadId}/assign`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ assignedTo: developerId })
+                });
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || 'Failed to assign developer.');
+                }
+            }
+            await loadLeadDetails();
+        } catch (err: any) {
+            alert(err.message || 'Failed to update developer assignment.');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -787,6 +832,70 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
                                 </div>
                             </div>
 
+                            {/* Website Development & Swati Handoff Info */}
+                            <div className="glass-panel">
+                                <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}><Globe size={16} /> Website Development & Handoff</h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', fontSize: '13px' }}>
+                                    <div>
+                                        <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Assigned Developer</div>
+                                        <div style={{ fontWeight: 600 }}>{lead.developer?.name || 'Not assigned'}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Website Status</div>
+                                        <span style={{
+                                            padding: '3px 8px',
+                                            borderRadius: '12px',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            background: lead.websiteStatus === 'COMPLETED' ? 'rgba(16,185,129,0.15)' : lead.websiteStatus === 'IN_PROGRESS' ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)',
+                                            color: lead.websiteStatus === 'COMPLETED' ? '#10b981' : lead.websiteStatus === 'IN_PROGRESS' ? 'var(--accent-primary)' : 'var(--text-muted)',
+                                            display: 'inline-block',
+                                            marginTop: '2px'
+                                        }}>
+                                            {lead.websiteStatus || 'ASSIGNED'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Website URL</div>
+                                        {lead.websiteUrl ? (
+                                            <a href={lead.websiteUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                {lead.websiteUrl} <ExternalLink size={12} />
+                                            </a>
+                                        ) : (
+                                            <div style={{ fontWeight: 600, color: 'var(--text-muted)', fontStyle: 'italic' }}>Not set</div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Website Completed Date</div>
+                                        <div style={{ fontWeight: 600 }}>{lead.websiteCompletedAt ? new Date(lead.websiteCompletedAt).toLocaleDateString() : 'N/A'}</div>
+                                    </div>
+                                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', gridColumn: 'span 2', paddingTop: '16px', marginTop: '4px' }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Swati Chaudhary Handoff Status</h4>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                            <div>
+                                                <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Handoff Status</div>
+                                                <span style={{
+                                                    padding: '3px 8px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 600,
+                                                    background: lead.handoffStatus === 'HANDED_OVER' ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
+                                                    color: lead.handoffStatus === 'HANDED_OVER' ? '#10b981' : 'var(--text-muted)',
+                                                    display: 'inline-block',
+                                                    marginTop: '2px'
+                                                }}>
+                                                    {lead.handoffStatus || 'PENDING'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Handoff Date</div>
+                                                <div style={{ fontWeight: 600 }}>{lead.handoffDate ? new Date(lead.handoffDate).toLocaleDateString() : 'N/A'}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Scoring details & Intelligence */}
                             <div className="glass-panel">
                                 <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}><Award size={16} /> Lead Intelligence & Website Audit</h3>
@@ -1318,6 +1427,21 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
                                         <option value="sales.agent@bizrank.com">sales.agent@bizrank.com</option>
                                         <option value="sales.manager@bizrank.com">sales.manager@bizrank.com</option>
                                         <option value="admin@bizrank.com">admin@bizrank.com</option>
+                                    </select>
+                                </div>
+
+                                {/* Developer Assignment Selector */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>Assigned Developer</label>
+                                    <select 
+                                        className="select-input"
+                                        value={lead.developerId || ''}
+                                        onChange={e => handleDeveloperUpdate(e.target.value)}
+                                    >
+                                        <option value="">Unassigned</option>
+                                        {developers.map(dev => (
+                                            <option key={dev.id} value={dev.id}>{dev.name}</option>
+                                        ))}
                                     </select>
                                 </div>
 

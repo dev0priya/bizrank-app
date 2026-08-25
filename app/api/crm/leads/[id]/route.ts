@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
-import { checkCRMAuthorization } from '../../../../../services/auth_middleware';
+import { checkCRMAuthorization, getAuthorizedUser } from '../../../../../services/auth_middleware';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(
     request: Request,
@@ -48,6 +50,8 @@ export async function GET(
                     orderBy: { createdAt: 'desc' }
                 },
                 pipelineStage: true,
+                developer: true,
+                swati: true,
                 tags: {
                     include: {
                         tag: true
@@ -173,18 +177,43 @@ export async function PATCH(
         // Validate & process assignedTo
         if (assignedTo !== undefined) {
             if (currentLead.assignedTo !== assignedTo) {
-                updateData.assignedTo = assignedTo;
+                let devId = null;
+                let assigneeName = assignedTo;
+
+                if (assignedTo) {
+                    const targetUser = await prisma.user.findFirst({
+                        where: {
+                            OR: [
+                                { id: assignedTo },
+                                { name: assignedTo },
+                                { username: assignedTo }
+                            ]
+                        }
+                    });
+                    if (targetUser) {
+                        if (targetUser.role === 'DEVELOPER') {
+                            devId = targetUser.id;
+                            assigneeName = targetUser.name;
+                        } else {
+                            return NextResponse.json({ error: 'Forbidden: Selected user is not a developer.' }, { status: 403 });
+                        }
+                    }
+                }
+
+                updateData.assignedTo = assigneeName;
+                updateData.developerId = devId;
+                
                 auditLogsToCreate.push({
                     performedBy: 'System',
                     action: 'ASSIGNEE_CHANGED',
                     entityType: 'CRMLead',
                     entityId: leadId,
                     previousValue: currentLead.assignedTo || 'Unassigned',
-                    newValue: assignedTo || 'Unassigned'
+                    newValue: assigneeName || 'Unassigned'
                 });
 
                 // Sync assignee to Business table
-                businessUpdateData.assigned_user = assignedTo;
+                businessUpdateData.assigned_user = assigneeName;
             }
         }
 
@@ -255,3 +284,77 @@ export async function PATCH(
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
+export async function DELETE(
+    request: Request,
+    context: { params: Promise<{ id: string }> }
+) {
+    const params = await context.params;
+    const leadId = parseInt(params.id);
+
+    if (isNaN(leadId)) {
+        return NextResponse.json({ error: 'Invalid Lead ID' }, { status: 400 });
+    }
+
+    const auth = await checkCRMAuthorization(request, 'write', { crmLeadId: leadId });
+    if (!auth.authorized) return auth.errorResponse;
+
+    try {
+        const currentLead = await prisma.cRMLead.findUnique({
+            where: { id: leadId }
+        });
+
+        if (!currentLead) {
+            return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+        }
+
+        const { role, username } = getAuthorizedUser(request);
+
+        // Developer permission check: can delete ONLY their own assigned work
+        if ((role as string) === 'DEVELOPER') {
+            const callingUser = await prisma.user.findUnique({
+                where: { username }
+            });
+            if (!callingUser || currentLead.developerId !== callingUser.id) {
+                return NextResponse.json({ error: 'Forbidden: You can only remove your own assigned website work.' }, { status: 403 });
+            }
+        }
+
+        await prisma.$transaction(async (tx) => {
+            // Set isArchived = true
+            await tx.cRMLead.update({
+                where: { id: leadId },
+                data: { isArchived: true }
+            });
+
+            // Log CRM Audit Log
+            await tx.cRMAuditLog.create({
+                data: {
+                    performedBy: username || 'System',
+                    action: 'LEAD_ARCHIVED',
+                    entityType: 'CRMLead',
+                    entityId: leadId,
+                    previousValue: 'false',
+                    newValue: 'true'
+                }
+            });
+
+            // Log Lead Activity
+            await tx.activity.create({
+                data: {
+                    crmLeadId: leadId,
+                    type: 'OTHER',
+                    summary: 'Lead Archived',
+                    details: `Lead soft-deleted/archived by ${username || 'System'}.`,
+                    performedBy: username || 'System'
+                }
+            });
+        });
+
+        return NextResponse.json({ success: true, message: 'Website work successfully removed.' });
+    } catch (error: any) {
+        console.error('Failed to delete/archive CRM lead:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+

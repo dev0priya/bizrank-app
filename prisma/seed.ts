@@ -585,7 +585,7 @@ async function main() {
   console.log('==========================================\n');
 
   // Step 1: Clear existing data in correct relational order
-  console.log('Step 1: Clearing existing geographic and category data...');
+  console.log('Step 1: Clearing existing geographic, user and category data...');
   await prisma.business.updateMany({ data: { area_id: null, city_id: null, state_id: null, country_id: null, district_id: null, subdistrict_id: null, job_id: null, category_id: null } });
   await prisma.collectionJob.deleteMany({});
   await prisma.searchLocation.deleteMany({});
@@ -596,7 +596,21 @@ async function main() {
   await prisma.state.deleteMany({});
   await prisma.country.deleteMany({});
   await prisma.businessCategory.deleteMany({});
+  await prisma.user.deleteMany({});
   console.log('  ✅ Cleared.\n');
+
+  // Step 1.5: Seed Users
+  console.log('Step 1.5: Seeding Users...');
+  const seedUsers = [
+    { id: 'dev-usr-simran', username: 'simran@bizrank.com', name: 'Simran Kaur', role: 'DEVELOPER' },
+    { id: 'dev-usr-sakshi', username: 'sakshi@bizrank.com', name: 'Sakshi Sharma', role: 'DEVELOPER' },
+    { id: 'dev-usr-sumit', username: 'sumit@bizrank.com', name: 'Sumit Chaudhary', role: 'DEVELOPER' },
+    { id: 'comm-usr-swati', username: 'swati@bizrank.com', name: 'Swati Chaudhary', role: 'COMMUNICATION' },
+  ];
+  for (const u of seedUsers) {
+    await prisma.user.create({ data: u });
+  }
+  console.log(`  ✅ Seeded ${seedUsers.length} users.\n`);
 
   // Step 2: Seed Categories
   console.log('Step 2: Seeding Business Categories...');
