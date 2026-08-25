@@ -134,7 +134,7 @@ export default function DashboardClient({ kpis, charts, recentJobs, recentBusine
                 {recentJobs.map((job: any) => (
                   <tr key={job.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <td style={{ padding: '12px 8px' }}>#{job.id}</td>
-                    <td style={{ padding: '12px 8px' }}>{job.category} in {job.city}</td>
+                    <td style={{ padding: '12px 8px' }}>{job.query}</td>
                     <td style={{ padding: '12px 8px' }}>{job._count.businesses}</td>
                     <td style={{ padding: '12px 8px' }}>
                       <span className={`badge ${job.status === 'Completed' ? 'badge-priority-c' : job.status === 'Running' ? 'badge-priority-b' : 'badge-priority-a'}`}>
@@ -163,8 +163,8 @@ export default function DashboardClient({ kpis, charts, recentJobs, recentBusine
               <tbody>
                 {recentBusinesses.map((biz: any) => (
                   <tr key={biz.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '12px 8px', fontWeight: 500 }}>{biz.name}</td>
-                    <td style={{ padding: '12px 8px', color: 'var(--text-muted)' }}>{biz.category?.name || 'N/A'}</td>
+                    <td style={{ padding: '12px 8px', fontWeight: 500 }}>{biz.business_name}</td>
+                    <td style={{ padding: '12px 8px', color: 'var(--text-muted)' }}>{biz.category?.displayName || biz.category?.name || 'N/A'}</td>
                     <td style={{ padding: '12px 8px', color: 'var(--text-muted)' }}>{biz.city?.name || 'N/A'}</td>
                     <td style={{ padding: '12px 8px' }}>
                       <span style={{ color: biz.ai_score > 70 ? 'var(--status-won)' : 'inherit' }}>{biz.ai_score || '-'}</span>

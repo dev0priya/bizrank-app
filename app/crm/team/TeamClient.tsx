@@ -67,20 +67,31 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
         }
     };
 
+    const getHeaders = () => {
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (selectedUser) {
+            headers['x-user-role'] = selectedUser.role;
+            headers['x-user-username'] = selectedUser.username;
+        }
+        return headers;
+    };
+
     const fetchLatestData = async () => {
         try {
-            const res = await fetch('/api/crm/leads', { cache: 'no-store' });
-            const data = await res.json();
+            const headers = getHeaders();
+            const res = await fetch('/api/crm/leads', { headers, cache: 'no-store' });
+            const result = await res.json();
+            const data = result.data || result;
             if (Array.isArray(data)) {
                 // Fetch user data as well
-                const userRes = await fetch('/api/crm/users', { cache: 'no-store' });
+                const userRes = await fetch('/api/crm/users', { headers, cache: 'no-store' });
                 if (userRes.ok) {
                     const uData = await userRes.json();
                     setUsers(uData);
                 }
                 
                 // Fetch full leads details with contacts and business details
-                const leadsRes = await Promise.all(data.map(l => fetch(`/api/crm/leads/${l.id}`, { cache: 'no-store' }).then(r => r.json())));
+                const leadsRes = await Promise.all(data.map(l => fetch(`/api/crm/leads/${l.id}`, { headers, cache: 'no-store' }).then(r => r.json())));
                 setLeads(leadsRes);
             }
         } catch (e) {
@@ -105,7 +116,7 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
         try {
             const res = await fetch(`/api/crm/leads/${leadId}/website-status`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify({ status, websiteUrl })
             });
             const data = await res.json();
@@ -128,7 +139,8 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
         setErrorMsg('');
         try {
             const res = await fetch(`/api/crm/leads/${leadId}/handoff`, {
-                method: 'POST'
+                method: 'POST',
+                headers: getHeaders()
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to share with Swati');
@@ -146,7 +158,8 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
         setErrorMsg('');
         try {
             const res = await fetch(`/api/crm/leads/${leadId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getHeaders()
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to delete website work');
@@ -174,7 +187,7 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
 
             const res = await fetch(`/api/crm/leads/${leadId}/communication`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify({
                     method: commMethod,
                     notes: finalNotes,
@@ -794,7 +807,10 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
                                                 )}
                                             </div>
                                             <div><strong>Developer:</strong> {openedLead.developer?.name || 'Unknown'}</div>
+                                            <div><strong>Website Status:</strong> {openedLead.websiteStatus || 'N/A'}</div>
+                                            <div><strong>Handoff Status:</strong> {openedLead.handoffStatus === 'HANDED_OVER' ? 'NEW' : (openedLead.handoffStatus || 'N/A')}</div>
                                             <div><strong>Completed Date:</strong> {openedLead.websiteCompletedAt ? new Date(openedLead.websiteCompletedAt).toLocaleDateString() : 'N/A'}</div>
+                                            <div><strong>Handoff Date:</strong> {openedLead.handoffDate ? new Date(openedLead.handoffDate).toLocaleDateString() : 'N/A'}</div>
                                         </div>
                                     </div>
                                 </div>

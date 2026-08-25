@@ -10,7 +10,7 @@ const ROLES = [
     { name: 'VIEWER', description: 'Read-only access across leads lists and Kanban pipeline. Settings menus are hidden.', privileges: 'Read-only Access' }
 ];
 
-export default function RolesClient() {
+export default function RolesClient({ initialUsers = [] }: { initialUsers?: any[] }) {
     return (
         <div style={{ paddingBottom: '40px', maxWidth: '800px' }}>
             <div style={{ marginBottom: '24px' }}>
@@ -23,7 +23,7 @@ export default function RolesClient() {
                 </p>
             </div>
 
-            <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
                 {ROLES.map(role => (
                     <div 
                         key={role.name} 
@@ -50,10 +50,44 @@ export default function RolesClient() {
                         </div>
                         
                         <div style={{ fontSize: '12px', background: 'rgba(59,130,246,0.15)', color: 'var(--accent-primary)', padding: '4px 10px', borderRadius: '12px', fontWeight: 600 }}>
-                            {role.privileges}
+                             {role.privileges}
                         </div>
                     </div>
                 ))}
+            </div>
+
+            {/* Active Database Users Section */}
+            <div>
+                <h3 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600 }}>Registered Team Members</h3>
+                {initialUsers.length === 0 ? (
+                    <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontStyle: 'italic' }}>No registered users found in database.</div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {initialUsers.map((user: any) => (
+                            <div 
+                                key={user.id} 
+                                style={{ 
+                                    padding: '14px 18px', 
+                                    background: 'rgba(255,255,255,0.02)', 
+                                    border: '1px solid var(--border-color)', 
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    fontSize: '14px'
+                                }}
+                            >
+                                <div>
+                                    <strong style={{ color: 'var(--text-main)' }}>{user.name}</strong>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '12px' }}>@{user.username}</span>
+                                </div>
+                                <span style={{ fontSize: '11px', background: 'rgba(59,130,246,0.15)', color: 'var(--accent-primary)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                                    {user.role}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

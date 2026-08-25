@@ -107,7 +107,8 @@ export function Sidebar() {
           { name: 'Recently Added', href: '/crm/leads?filter=recent' }
         ]
       },
-      { name: 'Pipeline', href: '/crm/pipeline', icon: Kanban },
+      { name: 'Projects', href: '/crm/projects', icon: Briefcase },
+      { name: 'Team', href: '/crm/team', icon: UsersRound },
       { 
         name: 'Follow-ups', 
         href: '/crm/follow-ups',
@@ -120,22 +121,18 @@ export function Sidebar() {
           { name: 'Completed', href: '/crm/follow-ups?filter=completed' }
         ]
       },
-      { name: 'Contacts', href: '/crm/contacts', icon: Contact },
       { name: 'Activities', href: '/crm/activities', icon: Activity },
-      { name: 'Deals', href: '/crm/deals', icon: Coins },
-      { name: 'Projects', href: '/crm/projects', icon: Briefcase },
-      { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-      { name: 'AI Sales Assistant', href: '/crm/ai', icon: Sparkles }
+      { name: 'Contacts', href: '/crm/contacts', icon: Contact }
     ] as SidebarItem[],
-    'TEAM & WORK': [
-      { name: 'Tasks', href: '/crm/tasks', icon: CheckSquare },
-      { name: 'Team', href: '/crm/team', icon: UsersRound },
-      { name: 'Tags', href: '/crm/tags', icon: Tags }
+    MANAGEMENT: [
+      { name: 'Tasks', href: '/crm/tasks', icon: CheckSquare }
+    ] as SidebarItem[],
+    ANALYTICS: [
+      { name: 'Analytics', href: '/analytics', icon: BarChart3 }
     ] as SidebarItem[],
     SETTINGS: [
       { name: 'CRM Settings', href: '/settings', icon: Settings },
       { name: 'Lead Scoring', href: '/settings/lead-scoring', icon: Settings, sensitive: true },
-      { name: 'Pipeline Settings', href: '/settings/pipeline', icon: Settings, sensitive: true },
       { name: 'Users & Roles', href: '/settings/users-roles', icon: Settings, sensitive: true },
       { name: 'Integrations', href: '/settings/integrations', icon: Settings, sensitive: true },
       { name: 'Business Settings', href: '/settings/business', icon: Settings, sensitive: true }

@@ -37,12 +37,6 @@ export async function POST(
             return NextResponse.json({ error: 'Cannot share with Swati: Website URL is missing.' }, { status: 400 });
         }
 
-        // Validate client phone number exists
-        const phone = currentLead.business.phone_number || currentLead.contacts.find(c => c.phone)?.phone;
-        if (!phone) {
-            return NextResponse.json({ error: 'Cannot share with Swati: Client phone number is missing.' }, { status: 400 });
-        }
-
         // Duplicate protection: check if already handed over
         if (currentLead.handoffStatus === 'HANDED_OVER') {
             return NextResponse.json({ success: true, message: 'Already shared with Swati', lead: currentLead });
@@ -66,7 +60,7 @@ export async function POST(
                     handoffStatus: 'HANDED_OVER',
                     handoffDate: new Date(),
                     swatiId: swatiUser.id,
-                    clientStatus: 'Follow-up Required' // Default communication status
+                    clientStatus: 'New' // Initialized to New to match Swati workspace filters
                 },
                 include: { business: true, swati: true, developer: true }
             });
