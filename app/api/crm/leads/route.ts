@@ -20,8 +20,14 @@ export async function GET(request: Request) {
         const hasWebsite = searchParams.get('hasWebsite');
         const minLeadScore = parseInt(searchParams.get('minLeadScore') || '0');
         const assignedTo = searchParams.get('assignedTo');
+        const developerId = searchParams.get('developerId');
+        const websiteStatus = searchParams.get('websiteStatus');
+        const handoffStatus = searchParams.get('handoffStatus');
+        const followUpStatus = searchParams.get('followUpStatus');
 
-        const where: any = {};
+        const where: any = {
+            isArchived: false
+        };
 
         const { role, username } = getAuthorizedUser(request);
         if (role === 'SALES_AGENT') {
@@ -32,6 +38,21 @@ export async function GET(request: Request) {
             } else {
                 where.assignedTo = assignedTo;
             }
+        }
+
+        if (developerId) {
+            if (developerId === 'UNASSIGNED') {
+                where.developerId = null;
+            } else {
+                where.developerId = developerId;
+            }
+        }
+        if (websiteStatus) where.websiteStatus = websiteStatus;
+        if (handoffStatus) where.handoffStatus = handoffStatus;
+        if (followUpStatus === 'true') {
+            where.followUps = { some: { status: 'PENDING' } };
+        } else if (followUpStatus === 'false') {
+            where.followUps = { none: { status: 'PENDING' } };
         }
 
         // Search criteria
@@ -98,6 +119,7 @@ export async function GET(request: Request) {
                     }
                 },
                 pipelineStage: true,
+                developer: true,
                 followUps: {
                     where: { status: 'PENDING' },
                     orderBy: { dueAt: 'asc' },
@@ -113,6 +135,14 @@ export async function GET(request: Request) {
 
         const total = await prisma.cRMLead.count({ where });
 
+        const summary = {
+            totalLeads: await prisma.cRMLead.count({ where: { isArchived: false } }),
+            assigned: await prisma.cRMLead.count({ where: { developerId: { not: null }, isArchived: false } }),
+            inProgress: await prisma.cRMLead.count({ where: { websiteStatus: 'IN_PROGRESS', isArchived: false } }),
+            completed: await prisma.cRMLead.count({ where: { websiteStatus: 'COMPLETED', isArchived: false } }),
+            shared: await prisma.cRMLead.count({ where: { handoffStatus: 'HANDED_OVER', isArchived: false } })
+        };
+
         return NextResponse.json({
             data: leads,
             pagination: {
@@ -120,7 +150,8 @@ export async function GET(request: Request) {
                 page,
                 limit,
                 totalPages: Math.ceil(total / limit)
-            }
+            },
+            summary
         });
     } catch (error: any) {
         console.error('Failed to query CRM leads:', error);

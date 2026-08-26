@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Users, Search, MapPin, Globe, Star, ExternalLink, 
+  Users, Search, MapPin, Globe, ExternalLink, 
   Filter, ArrowUpDown, Loader2, AlertCircle, TrendingUp,
-  DollarSign, Check, ShieldAlert, Calendar
+  DollarSign, Check, ShieldAlert, Calendar, Phone, Briefcase, User
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -19,6 +19,7 @@ export default function LeadsClient({
     stages: any[]; 
 }) {
     const [leads, setLeads] = useState<any[]>([]);
+    const [users, setUsers] = useState<any[]>([]);
     const searchParams = useSearchParams();
     
     // Pagination & Loading
@@ -27,6 +28,15 @@ export default function LeadsClient({
     const [totalResults, setTotalResults] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Dynamic Summary metrics
+    const [summary, setSummary] = useState<any>({
+        totalLeads: 0,
+        assigned: 0,
+        inProgress: 0,
+        completed: 0,
+        shared: 0
+    });
 
     // Multi-Select & Bulk operations
     const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([]);
@@ -38,6 +48,45 @@ export default function LeadsClient({
     const [bulkTag, setBulkTag] = useState('');
     const [bulkFollowUpDate, setBulkFollowUpDate] = useState('');
     const [bulkFollowUpSummary, setBulkFollowUpSummary] = useState('');
+
+    // Search & Debounce
+    const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    // New Filter States
+    const [selectedDeveloper, setSelectedDeveloper] = useState('');
+    const [selectedWebsiteStatus, setSelectedWebsiteStatus] = useState('');
+    const [selectedScoreRange, setSelectedScoreRange] = useState('');
+    const [selectedHandoffStatus, setSelectedHandoffStatus] = useState('');
+    const [selectedFollowUpStatus, setSelectedFollowUpStatus] = useState('');
+
+    // Legacy/Extra Filters (to keep support)
+    const [selectedStage, setSelectedStage] = useState('');
+    const [selectedPriority, setSelectedPriority] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('');
+    const [selectedState, setSelectedState] = useState('');
+
+    // Sorting
+    const [sortField, setSortField] = useState('createdAt');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+    // Fetch active users list for Developer dropdown filter
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const res = await fetch('/api/crm/users');
+                if (res.ok) {
+                    const uData = await res.json();
+                    setUsers(uData);
+                }
+            } catch (err) {
+                console.error("Failed to load users for filter dropdown", err);
+            }
+        };
+        fetchUsers();
+    }, []);
+
+    const developers = users.filter(u => u.role === 'DEVELOPER');
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
@@ -90,42 +139,6 @@ export default function LeadsClient({
         }
     };
 
-    // Search & Debounce
-    const [searchTerm, setSearchTerm] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-
-    // Filters
-    const [selectedStage, setSelectedStage] = useState('');
-    const [selectedPriority, setSelectedPriority] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('');
-    const [selectedState, setSelectedState] = useState('');
-    const [hasWebsite, setHasWebsite] = useState('');
-    const [minScore, setMinScore] = useState(0);
-    const [selectedAssignee, setSelectedAssignee] = useState('');
-
-    // Sorting
-    const [sortField, setSortField] = useState('createdAt');
-    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-
-    useEffect(() => {
-        const filter = searchParams.get('filter');
-        if (filter === 'mine') {
-            const myUsername = localStorage.getItem('bizrank_active_username') || 'admin@bizrank.com';
-            setSelectedAssignee(myUsername);
-        } else if (filter === 'hot') {
-            setSelectedPriority('A');
-        } else if (filter === 'unassigned') {
-            setSelectedAssignee('UNASSIGNED');
-        } else if (filter === 'recent') {
-            setSortField('createdAt');
-            setSortOrder('desc');
-        }
-    }, [searchParams]);
-
-    // Row Saving States
-    const [savingLeadId, setSavingLeadId] = useState<number | null>(null);
-    const [savedLeadId, setSavedLeadId] = useState<number | null>(null);
-
     // Debounce Search Term
     useEffect(() => {
         const handler = setTimeout(() => {
@@ -145,8 +158,7 @@ export default function LeadsClient({
             page: page.toString(),
             limit: '15',
             sortField,
-            sortOrder,
-            minLeadScore: minScore.toString()
+            sortOrder
         });
 
         if (debouncedSearch) params.append('search', debouncedSearch);
@@ -154,8 +166,22 @@ export default function LeadsClient({
         if (selectedPriority) params.append('priority', selectedPriority);
         if (selectedCategory) params.append('categoryId', selectedCategory);
         if (selectedState) params.append('stateId', selectedState);
-        if (hasWebsite) params.append('hasWebsite', hasWebsite);
-        if (selectedAssignee) params.append('assignedTo', selectedAssignee);
+
+        // New Filters
+        if (selectedDeveloper) params.append('developerId', selectedDeveloper);
+        if (selectedWebsiteStatus) params.append('websiteStatus', selectedWebsiteStatus);
+        if (selectedHandoffStatus) params.append('handoffStatus', selectedHandoffStatus);
+        if (selectedFollowUpStatus) params.append('followUpStatus', selectedFollowUpStatus);
+        
+        // Score Ranges mapping
+        if (selectedScoreRange === 'high') {
+            params.append('minLeadScore', '70');
+        } else if (selectedScoreRange === 'medium') {
+            params.append('minLeadScore', '40');
+            // Backend will do score >= 40, which includes high, but we'll sort on UI if needed.
+        } else if (selectedScoreRange === 'low') {
+            params.append('minLeadScore', '0');
+        }
 
         try {
             const res = await fetch(`/api/crm/leads?${params.toString()}`);
@@ -163,9 +189,20 @@ export default function LeadsClient({
             const data = await res.json();
             
             if (data.data) {
-                setLeads(data.data);
+                // Client-side score ranges filtering for strict bounds if necessary
+                let fetchedLeads = data.data;
+                if (selectedScoreRange === 'medium') {
+                    fetchedLeads = fetchedLeads.filter((l: any) => l.leadScore >= 40 && l.leadScore < 70);
+                } else if (selectedScoreRange === 'low') {
+                    fetchedLeads = fetchedLeads.filter((l: any) => l.leadScore < 40);
+                }
+
+                setLeads(fetchedLeads);
                 setTotalPages(data.pagination.totalPages);
                 setTotalResults(data.pagination.total);
+                if (data.summary) {
+                    setSummary(data.summary);
+                }
             }
         } catch (err: any) {
             console.error(err);
@@ -173,56 +210,17 @@ export default function LeadsClient({
         } finally {
             setLoading(false);
         }
-    }, [page, debouncedSearch, selectedStage, selectedPriority, selectedCategory, selectedState, hasWebsite, minScore, selectedAssignee, sortField, sortOrder]);
+    }, [
+        page, debouncedSearch, selectedStage, selectedPriority, selectedCategory, 
+        selectedState, selectedDeveloper, selectedWebsiteStatus, 
+        selectedHandoffStatus, selectedFollowUpStatus, selectedScoreRange, 
+        sortField, sortOrder
+    ]);
 
     useEffect(() => {
         fetchLeads();
         setSelectedLeadIds([]);
     }, [fetchLeads]);
-
-    // Handle Inline PATCH updates
-    const handleInlineUpdate = async (leadId: number, field: string, value: any) => {
-        setSavingLeadId(leadId);
-        try {
-            const body: any = {};
-            if (field === 'pipelineStageId') body.pipelineStageId = parseInt(value);
-            if (field === 'priority') body.priority = value || null;
-            if (field === 'assignedTo') body.assignedTo = value || null;
-            if (field === 'estimatedValue') body.estimatedValue = parseFloat(value) || 0;
-
-            const res = await fetch(`/api/crm/leads/${leadId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
-            if (!res.ok) throw new Error('Failed to update lead properties');
-
-            // Optimistic / DB response Sync
-            setLeads(leads.map(l => {
-                if (l.id === leadId) {
-                    const updated = { ...l };
-                    if (field === 'pipelineStageId') {
-                        updated.pipelineStageId = parseInt(value);
-                        updated.pipelineStage = stages.find(s => s.id === parseInt(value));
-                    }
-                    if (field === 'priority') updated.priority = value || null;
-                    if (field === 'assignedTo') updated.assignedTo = value || null;
-                    if (field === 'estimatedValue') updated.estimatedValue = parseFloat(value) || 0;
-                    return updated;
-                }
-                return l;
-            }));
-
-            setSavedLeadId(leadId);
-            setTimeout(() => setSavedLeadId(null), 1500);
-        } catch (err) {
-            console.error(err);
-            alert('Failed to update CRM lead property. Verify inputs.');
-        } finally {
-            setSavingLeadId(null);
-        }
-    };
 
     const handleSort = (field: string) => {
         if (sortField === field) {
@@ -234,153 +232,209 @@ export default function LeadsClient({
         setPage(1);
     };
 
-    const formatCurrency = (val: number | null) => {
-        if (!val) return '$0';
-        return '$' + val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const getScoreBadge = (score: number) => {
+        if (score >= 70) {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>{score}</span>
+                    <span style={{ fontSize: '10px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', padding: '1px 6px', borderRadius: '4px', width: 'fit-content', fontWeight: 600 }}>High</span>
+                </div>
+            );
+        } else if (score >= 40) {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>{score}</span>
+                    <span style={{ fontSize: '10px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', padding: '1px 6px', borderRadius: '4px', width: 'fit-content', fontWeight: 600 }}>Medium</span>
+                </div>
+            );
+        } else {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>{score}</span>
+                    <span style={{ fontSize: '10px', background: 'rgba(59,130,246,0.15)', color: 'var(--accent-primary)', padding: '1px 6px', borderRadius: '4px', width: 'fit-content', fontWeight: 600 }}>Low</span>
+                </div>
+            );
+        }
     };
 
-    const getStageBadgeColor = (stageName: string) => {
-        switch (stageName) {
-            case 'New': return 'rgba(59, 130, 246, 0.2)'; // Blue
-            case 'Contacted': return 'rgba(168, 85, 247, 0.2)'; // Purple
-            case 'Meeting Scheduled': return 'rgba(234, 179, 8, 0.2)'; // Yellow
-            case 'Proposal Sent': return 'rgba(249, 115, 22, 0.2)'; // Orange
-            case 'Closed Won': return 'rgba(34, 197, 94, 0.2)'; // Green
-            case 'Closed Lost': return 'rgba(239, 68, 68, 0.2)'; // Red
-            default: return 'rgba(255, 255, 255, 0.05)';
+    const getWebsiteStatusBadge = (status: string) => {
+        switch (status) {
+            case 'ASSIGNED':
+                return (
+                    <span style={{ 
+                        fontSize: '11px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', 
+                        padding: '3px 8px', borderRadius: '12px', fontWeight: 600 
+                    }}>
+                        Assigned
+                    </span>
+                );
+            case 'IN_PROGRESS':
+                return (
+                    <span style={{ 
+                        fontSize: '11px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', 
+                        padding: '3px 8px', borderRadius: '12px', fontWeight: 600 
+                    }}>
+                        In Progress
+                    </span>
+                );
+            case 'COMPLETED':
+                return (
+                    <span style={{ 
+                        fontSize: '11px', background: 'rgba(16,185,129,0.15)', color: '#10b981', 
+                        padding: '3px 8px', borderRadius: '12px', fontWeight: 600 
+                    }}>
+                        Completed
+                    </span>
+                );
+            default:
+                return (
+                    <span style={{ 
+                        fontSize: '11px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', 
+                        padding: '3px 8px', borderRadius: '12px', fontWeight: 600 
+                    }}>
+                        Not Started
+                    </span>
+                );
         }
     };
 
     return (
         <div style={{ paddingBottom: '40px' }}>
             {/* Header section */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Users size={28} className="text-gradient" />
-                        <h1 className="text-gradient" style={{ margin: 0 }}>CRM Leads Management</h1>
-                    </div>
-                    <Link href="/crm/follow-ups" style={{ textDecoration: 'none' }}>
-                        <button className="btn-icon primary" style={{ padding: '6px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Calendar size={13} /> View Follow-ups & Tasks
-                        </button>
-                    </Link>
+            <div style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Users size={28} className="text-gradient" />
+                    <h1 style={{ margin: 0, fontSize: '26px' }}>Leads</h1>
                 </div>
+                <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '14px' }}>
+                    All businesses discovered and added to CRM
+                </p>
+            </div>
 
-                <div style={{ position: 'relative', width: '300px', minWidth: '240px' }}>
-                    <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
-                    <input 
-                        type="text" 
-                        placeholder="Search by name, category, phone..." 
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        style={{ width: '100%', padding: '10px 12px 10px 38px', background: 'rgba(0, 0, 0, 0.2)', color: 'white', border: '1px solid var(--border-color)', borderRadius: '8px', outline: 'none', fontSize: '13px' }} 
-                    />
+            {/* KPI Cards Summary */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Total Leads</div>
+                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-main)' }}>{summary.totalLeads}</div>
+                </div>
+                <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Assigned</div>
+                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--accent-primary)' }}>{summary.assigned}</div>
+                </div>
+                <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Website In Progress</div>
+                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#f59e0b' }}>{summary.inProgress}</div>
+                </div>
+                <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Completed</div>
+                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#10b981' }}>{summary.completed}</div>
+                </div>
+                <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Shared with Swati</div>
+                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#8b5cf6' }}>{summary.shared}</div>
                 </div>
             </div>
 
-            <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>
-                Manage promoted sales leads, assign deals, schedule callbacks, and log customer activities directly.
-            </p>
-
-            {/* DEEP FILTERS PANEL */}
-            <div className="glass-panel" style={{ marginBottom: '24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontWeight: 'bold' }}>
-                    <Filter size={18} /> Sales Pipeline Filters
-                </div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', alignItems: 'end' }}>
+            {/* Filter Cockpit Panel */}
+            <div className="glass-panel" style={{ padding: '20px', marginBottom: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                     
-                    <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>Pipeline Stage</label>
-                        <select className="select-input" value={selectedStage} onChange={e => { setSelectedStage(e.target.value); setPage(1); }}>
-                            <option value="">All Stages</option>
-                            {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {/* Search Field */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Search Lead</label>
+                        <div style={{ position: 'relative' }}>
+                            <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                            <input 
+                                type="text" 
+                                className="select-input" 
+                                placeholder="Business name, phone, location..." 
+                                style={{ paddingLeft: '34px' }}
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Developer Filter */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Developer</label>
+                        <select className="select-input" value={selectedDeveloper} onChange={e => { setSelectedDeveloper(e.target.value); setPage(1); }}>
+                            <option value="">All Developers</option>
+                            <option value="UNASSIGNED">Unassigned</option>
+                            {developers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
                     </div>
 
-                    <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>Priority</label>
-                        <select className="select-input" value={selectedPriority} onChange={e => { setSelectedPriority(e.target.value); setPage(1); }}>
-                            <option value="">All Priorities</option>
-                            <option value="A">Priority A (High)</option>
-                            <option value="B">Priority B (Med)</option>
-                            <option value="C">Priority C (Low)</option>
+                    {/* Website Status Filter */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Website Status</label>
+                        <select className="select-input" value={selectedWebsiteStatus} onChange={e => { setSelectedWebsiteStatus(e.target.value); setPage(1); }}>
+                            <option value="">All Statuses</option>
+                            <option value="ASSIGNED">Assigned / Not Started</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="COMPLETED">Completed</option>
                         </select>
                     </div>
 
-                    <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>Category</label>
-                        <select className="select-input" value={selectedCategory} onChange={e => { setSelectedCategory(e.target.value); setPage(1); }}>
-                            <option value="">All Categories</option>
-                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {/* Opportunity Score Filter */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Opportunity Score</label>
+                        <select className="select-input" value={selectedScoreRange} onChange={e => { setSelectedScoreRange(e.target.value); setPage(1); }}>
+                            <option value="">All Scores</option>
+                            <option value="high">High (&gt;= 70)</option>
+                            <option value="medium">Medium (40 - 69)</option>
+                            <option value="low">Low (&lt; 40)</option>
                         </select>
                     </div>
 
-                    <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>State</label>
-                        <select className="select-input" value={selectedState} onChange={e => { setSelectedState(e.target.value); setPage(1); }}>
-                            <option value="">All States</option>
-                            {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {/* Swati Handoff Status Filter */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Handoff Status</label>
+                        <select className="select-input" value={selectedHandoffStatus} onChange={e => { setSelectedHandoffStatus(e.target.value); setPage(1); }}>
+                            <option value="">All Handoffs</option>
+                            <option value="HANDED_OVER">Shared</option>
+                            <option value="PENDING">Not Shared</option>
                         </select>
                     </div>
 
-                    <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>Website Presence</label>
-                        <select className="select-input" value={hasWebsite} onChange={e => { setHasWebsite(e.target.value); setPage(1); }}>
-                            <option value="">All Leads</option>
-                            <option value="true">Has Website</option>
-                            <option value="false">No Website</option>
+                    {/* Follow-up Filter */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Follow-up</label>
+                        <select className="select-input" value={selectedFollowUpStatus} onChange={e => { setSelectedFollowUpStatus(e.target.value); setPage(1); }}>
+                            <option value="">All Follow-ups</option>
+                            <option value="true">Has Pending Follow-up</option>
+                            <option value="false">No Follow-up</option>
                         </select>
                     </div>
 
-                    <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>Assigned Agent</label>
-                        <select className="select-input" value={selectedAssignee} onChange={e => { setSelectedAssignee(e.target.value); setPage(1); }}>
-                            <option value="">All Agents</option>
-                            <option value="sales.agent@bizrank.com">sales.agent@bizrank.com</option>
-                            <option value="sales.manager@bizrank.com">sales.manager@bizrank.com</option>
-                            <option value="admin@bizrank.com">admin@bizrank.com</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>Min Opp Score: {minScore}</label>
-                        <input 
-                            type="range" min="0" max="100" step="10"
-                            value={minScore} 
-                            onChange={e => { setMinScore(parseInt(e.target.value)); setPage(1); }}
-                            style={{ width: '100%', cursor: 'pointer', height: '36px' }} 
-                        />
-                    </div>
                 </div>
             </div>
 
-            {/* RESULTS METADATA & SORT INFO */}
+            {/* Results Metadata Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-                    Showing page {page} of {totalPages} (Total: {totalResults} active leads)
+                    Showing page <strong>{page}</strong> of {totalPages} (Total: {totalResults} active leads)
                 </div>
                 
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '10px' }}>
                     <button 
                         disabled={page === 1 || loading}
                         onClick={() => setPage(p => p - 1)}
-                        style={{ padding: '6px 16px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600 }}
+                        style={{ padding: '6px 14px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600 }}
                     >
                         Previous
                     </button>
                     <button 
                         disabled={page === totalPages || totalPages === 0 || loading}
                         onClick={() => setPage(p => p + 1)}
-                        style={{ padding: '6px 16px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600 }}
+                        style={{ padding: '6px 14px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600 }}
                     >
                         Next
                     </button>
                 </div>
             </div>
 
-            {/* CRM LEADS DATA TABLE */}
+            {/* Error alerts */}
             {error && (
                 <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--status-lost)', borderColor: 'rgba(239, 68, 68, 0.2)', marginBottom: '24px' }}>
                     <ShieldAlert size={20} />
@@ -388,12 +442,13 @@ export default function LeadsClient({
                 </div>
             )}
 
+            {/* Leads Listing Table */}
             <div className="glass-panel" style={{ opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s ease', padding: 0, overflow: 'hidden' }}>
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                         <thead>
-                            <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', textAlign: 'left', background: 'rgba(0,0,0,0.15)' }}>
-                                <th style={{ width: '40px', padding: '16px 12px' }}>
+                            <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.15)' }}>
+                                <th style={{ width: '40px', padding: '16px 14px' }}>
                                     <input 
                                         type="checkbox" 
                                         checked={selectedLeadIds.length === leads.length && leads.length > 0} 
@@ -401,32 +456,29 @@ export default function LeadsClient({
                                         style={{ cursor: 'pointer' }}
                                     />
                                 </th>
-                                <th onClick={() => handleSort('businessName')} style={{ padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }}>
+                                <th onClick={() => handleSort('businessName')} style={{ padding: '16px 14px', cursor: 'pointer', userSelect: 'none' }}>
                                     Business Details <ArrowUpDown size={12} style={{ display: 'inline', marginLeft: '4px' }} />
                                 </th>
-                                <th style={{ padding: '16px 12px' }}>Location</th>
-                                <th onClick={() => handleSort('leadScore')} style={{ padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }}>
-                                    Score <ArrowUpDown size={12} style={{ display: 'inline', marginLeft: '4px' }} />
+                                <th onClick={() => handleSort('leadScore')} style={{ padding: '16px 14px', cursor: 'pointer', userSelect: 'none' }}>
+                                    Opportunity Score <ArrowUpDown size={12} style={{ display: 'inline', marginLeft: '4px' }} />
                                 </th>
-                                <th onClick={() => handleSort('priority')} style={{ padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }}>
-                                    Priority <ArrowUpDown size={12} style={{ display: 'inline', marginLeft: '4px' }} />
-                                </th>
-                                <th style={{ padding: '16px 12px' }}>Pipeline Stage</th>
-                                <th onClick={() => handleSort('estimatedValue')} style={{ padding: '16px 12px', cursor: 'pointer', userSelect: 'none' }}>
-                                    Est. Value ($) <ArrowUpDown size={12} style={{ display: 'inline', marginLeft: '4px' }} />
-                                </th>
-                                <th style={{ padding: '16px 12px' }}>Next Follow-Up</th>
-                                <th style={{ padding: '16px 12px' }}>Assigned To</th>
-                                <th style={{ padding: '16px 12px', textAlign: 'right' }}>Actions</th>
+                                <th style={{ padding: '16px 14px' }}>Developer</th>
+                                <th style={{ padding: '16px 14px' }}>Website Status</th>
+                                <th style={{ padding: '16px 14px' }}>Website URL</th>
+                                <th style={{ padding: '16px 14px' }}>Handoff Status</th>
+                                <th style={{ padding: '16px 14px' }}>Next Follow-up</th>
+                                <th style={{ padding: '16px 14px', textAlign: 'right' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {leads.map(lead => {
                                 const nextFollowUp = lead.followUps && lead.followUps.length > 0 ? lead.followUps[0] : null;
+                                const hasPhone = lead.business.phone_number?.trim();
 
                                 return (
-                                    <tr key={lead.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: selectedLeadIds.includes(lead.id) ? 'rgba(59,130,246,0.05)' : savingLeadId === lead.id ? 'rgba(59,130,246,0.03)' : undefined }}>
-                                        <td style={{ padding: '16px 12px' }}>
+                                    <tr key={lead.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: selectedLeadIds.includes(lead.id) ? 'rgba(59,130,246,0.05)' : undefined }}>
+                                        {/* Row Checkbox */}
+                                        <td style={{ padding: '16px 14px' }}>
                                             <input 
                                                 type="checkbox" 
                                                 checked={selectedLeadIds.includes(lead.id)} 
@@ -434,132 +486,124 @@ export default function LeadsClient({
                                                 style={{ cursor: 'pointer' }}
                                             />
                                         </td>
-                                        <td style={{ padding: '16px 12px' }}>
+
+                                        {/* Business Details */}
+                                        <td style={{ padding: '16px 14px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{ fontWeight: 600, fontSize: '14px' }}>{lead.business.business_name}</div>
+                                                <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-main)' }}>{lead.business.business_name}</div>
+                                                
+                                                {/* Maps icon link */}
+                                                {lead.business.google_maps_url && (
+                                                    <a href={lead.business.google_maps_url} target="_blank" rel="noreferrer" style={{ color: 'var(--text-muted)' }} title="Google Maps Link">
+                                                        <MapPin size={12} className="hover-link" />
+                                                    </a>
+                                                )}
+
+                                                {/* Existing website icon link */}
                                                 {lead.business.website && (
-                                                    <a href={lead.business.website} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)' }} title="Visit site">
-                                                        <Globe size={12} />
+                                                    <a href={lead.business.website} target="_blank" rel="noreferrer" style={{ color: 'var(--text-muted)' }} title="Existing Website">
+                                                        <Globe size={12} className="hover-link" />
                                                     </a>
                                                 )}
                                             </div>
-                                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                                {lead.business.google_category || lead.business.category?.name || 'No Category'}
-                                            </div>
-                                        </td>
-                                        
-                                        <td style={{ padding: '16px 12px', color: 'var(--text-muted)' }}>
-                                            <div>{lead.business.city?.name || 'Unknown City'}</div>
-                                            <div style={{ fontSize: '11px', opacity: 0.8 }}>{lead.business.state?.name || '-'}</div>
-                                        </td>
-
-                                        <td style={{ padding: '16px 12px' }}>
-                                            <span className={`badge ${lead.leadScore >= 70 ? 'badge-priority-c' : lead.leadScore >= 40 ? 'badge-priority-b' : 'badge-priority-a'}`} style={{ fontWeight: 600 }}>
-                                                {lead.leadScore}
-                                            </span>
-                                        </td>
-
-                                        {/* Dynamic Priority Selector */}
-                                        <td style={{ padding: '16px 12px' }}>
-                                            <select 
-                                                value={lead.priority || ''} 
-                                                onChange={e => handleInlineUpdate(lead.id, 'priority', e.target.value)}
-                                                style={{ padding: '4px 6px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '4px', outline: 'none', fontSize: '12px' }}
-                                            >
-                                                <option value="">Unassigned</option>
-                                                <option value="A">A (High)</option>
-                                                <option value="B">B (Medium)</option>
-                                                <option value="C">C (Low)</option>
-                                            </select>
-                                        </td>
-
-                                        {/* Dynamic Stage Selector */}
-                                        <td style={{ padding: '16px 12px' }}>
-                                            <select 
-                                                value={lead.pipelineStageId} 
-                                                onChange={e => handleInlineUpdate(lead.id, 'pipelineStageId', e.target.value)}
-                                                style={{ 
-                                                    padding: '4px 6px', 
-                                                    background: getStageBadgeColor(lead.pipelineStage?.name), 
-                                                    color: 'white', 
-                                                    border: '1px solid var(--border-color)', 
-                                                    borderRadius: '4px', 
-                                                    outline: 'none', 
-                                                    fontSize: '12px',
-                                                    fontWeight: 500
-                                                }}
-                                            >
-                                                {stages.map(s => (
-                                                    <option key={s.id} value={s.id} style={{ background: 'var(--bg-color)', color: 'var(--text-main)' }}>
-                                                        {s.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </td>
-
-                                        {/* Inline Revenue Value Selector */}
-                                        <td style={{ padding: '16px 12px' }}>
-                                            <div style={{ position: 'relative', width: '100px' }}>
-                                                <DollarSign size={12} style={{ position: 'absolute', left: '6px', top: '7px', color: 'var(--text-muted)' }} />
-                                                <input 
-                                                    type="number"
-                                                    defaultValue={lead.estimatedValue || ''}
-                                                    onBlur={e => {
-                                                        if (parseFloat(e.target.value) !== lead.estimatedValue) {
-                                                            handleInlineUpdate(lead.id, 'estimatedValue', e.target.value);
-                                                        }
-                                                    }}
-                                                    placeholder="0"
-                                                    style={{ width: '100%', padding: '4px 6px 4px 18px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '4px', outline: 'none', fontSize: '12px' }}
-                                                />
+                                            
+                                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                <div>{lead.business.google_category || lead.business.category?.displayName || lead.business.category?.name || 'No Category'}</div>
+                                                <div>{lead.business.city?.name || 'Unknown Location'}{lead.business.state?.name ? `, ${lead.business.state.name}` : ''}</div>
+                                                
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', color: hasPhone ? 'var(--text-muted)' : 'rgba(255,255,255,0.2)' }}>
+                                                    <Phone size={11} />
+                                                    <span>{hasPhone ? lead.business.phone_number : 'Not available'}</span>
+                                                </div>
                                             </div>
                                         </td>
 
-                                        {/* Next Follow-Up */}
-                                        <td style={{ padding: '16px 12px', color: 'var(--text-muted)' }}>
+                                        {/* Opportunity Score */}
+                                        <td style={{ padding: '16px 14px' }}>
+                                            {getScoreBadge(lead.leadScore)}
+                                        </td>
+
+                                        {/* Assigned Developer */}
+                                        <td style={{ padding: '16px 14px' }}>
+                                            {lead.developer ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: 'bold' }}>
+                                                        {lead.developer.name.split(' ').map((n: string) => n[0]).join('')}
+                                                    </div>
+                                                    <strong style={{ color: 'var(--text-main)', fontSize: '13px' }}>{lead.developer.name}</strong>
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Unassigned</span>
+                                            )}
+                                        </td>
+
+                                        {/* Website Status */}
+                                        <td style={{ padding: '16px 14px' }}>
+                                            {getWebsiteStatusBadge(lead.websiteStatus)}
+                                        </td>
+
+                                        {/* Website URL */}
+                                        <td style={{ padding: '16px 14px' }}>
+                                            {lead.websiteUrl ? (
+                                                <a 
+                                                    href={lead.websiteUrl} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                    className="hover-link"
+                                                >
+                                                    Link <ExternalLink size={12} />
+                                                </a>
+                                            ) : (
+                                                <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                            )}
+                                        </td>
+
+                                        {/* Handoff Status */}
+                                        <td style={{ padding: '16px 14px' }}>
+                                            {lead.handoffStatus === 'HANDED_OVER' ? (
+                                                <span style={{ 
+                                                    fontSize: '11px', background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', 
+                                                    padding: '3px 8px', borderRadius: '12px', fontWeight: 600 
+                                                }}>
+                                                    Shared
+                                                </span>
+                                            ) : (
+                                                <span style={{ 
+                                                    fontSize: '11px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', 
+                                                    padding: '3px 8px', borderRadius: '12px', fontWeight: 600 
+                                                }}>
+                                                    Not Shared
+                                                </span>
+                                            )}
+                                        </td>
+
+                                        {/* Next Follow-up */}
+                                        <td style={{ padding: '16px 14px' }}>
                                             {nextFollowUp ? (
                                                 <div>
                                                     <div style={{ fontWeight: 500, color: 'var(--text-main)' }}>
                                                         {new Date(nextFollowUp.dueAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
                                                     </div>
-                                                    <div style={{ fontSize: '11px' }}>
+                                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                                                         {new Date(nextFollowUp.dueAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <span style={{ fontSize: '12px', opacity: 0.6 }}>No follow-up</span>
+                                                <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>No follow-up</span>
                                             )}
                                         </td>
 
-                                        {/* Dynamic Assignee Selector */}
-                                        <td style={{ padding: '16px 12px' }}>
-                                            <select 
-                                                value={lead.assignedTo || ''} 
-                                                onChange={e => handleInlineUpdate(lead.id, 'assignedTo', e.target.value)}
-                                                style={{ padding: '4px 6px', background: 'var(--panel-bg)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '4px', outline: 'none', fontSize: '12px', maxWidth: '140px' }}
+                                        {/* Action: Open */}
+                                        <td style={{ padding: '16px 14px', textAlign: 'right' }}>
+                                            <Link 
+                                                href={`/crm/leads/${lead.id}`} 
+                                                className="btn-secondary" 
+                                                style={{ padding: '5px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', textDecoration: 'none', gap: '4px' }}
+                                                title="Open details page"
                                             >
-                                                <option value="">Unassigned</option>
-                                                <option value="sales.agent@bizrank.com">sales.agent@bizrank.com</option>
-                                                <option value="sales.manager@bizrank.com">sales.manager@bizrank.com</option>
-                                                <option value="admin@bizrank.com">admin@bizrank.com</option>
-                                            </select>
-                                        </td>
-
-                                        {/* Actions */}
-                                        <td style={{ padding: '16px 12px', textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                                {savingLeadId === lead.id && <Loader2 size={14} className="spin" style={{ color: 'var(--accent-primary)' }} />}
-                                                {savedLeadId === lead.id && <Check size={14} style={{ color: 'var(--status-won)' }} />}
-                                                
-                                                <Link 
-                                                    href={`/crm/leads/${lead.id}`} 
-                                                    className="btn-icon primary" 
-                                                    style={{ padding: '6px 10px', minWidth: 'unset', fontSize: '12px' }}
-                                                    title="Open Lead Profile"
-                                                >
-                                                    <ExternalLink size={14} /> Open
-                                                </Link>
-                                            </div>
+                                                Open <ExternalLink size={11} />
+                                            </Link>
                                         </td>
                                     </tr>
                                 );
@@ -567,16 +611,14 @@ export default function LeadsClient({
 
                             {leads.length === 0 && !loading && (
                                 <tr>
-                                    <td colSpan={10} style={{ padding: '48px', textAlign: 'center' }}>
+                                    <td colSpan={9} style={{ padding: '48px', textAlign: 'center' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                                             <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 <TrendingUp size={24} color="var(--text-muted)" />
                                             </div>
-                                            <div style={{ fontSize: '16px', fontWeight: 600 }}>No leads match criteria</div>
+                                            <div style={{ fontSize: '16px', fontWeight: 600 }}>No leads found.</div>
                                             <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                                                {debouncedSearch || selectedStage || selectedPriority || selectedCategory || selectedState || selectedAssignee
-                                                    ? "Clear some of your deep filters to find matching pipeline records."
-                                                    : "Promote qualified businesses from the discovery staging area to get started."}
+                                                Clear some of your filters or search keywords to find matching pipeline records.
                                             </div>
                                         </div>
                                     </td>
@@ -585,7 +627,7 @@ export default function LeadsClient({
 
                             {loading && (
                                 <tr>
-                                    <td colSpan={10} style={{ padding: '40px', textAlign: 'center' }}>
+                                    <td colSpan={9} style={{ padding: '40px', textAlign: 'center' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-muted)' }}>
                                             <Loader2 size={18} className="spin" />
                                             <span>Loading leads records from PostgreSQL...</span>
