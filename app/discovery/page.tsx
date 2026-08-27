@@ -1365,7 +1365,7 @@ export default function BusinessDiscoveryPage() {
             <div style={{ marginBottom: '24px' }}>
               <label style={{ display: 'block', fontSize: '13px', color: '#9ca3af', marginBottom: '10px', fontWeight: 600 }}>Select Team Member</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {['Simran Kaur', 'Sakshi Sharma', 'Sumit Chaudhary'].map(name => (
+                {['Simran Kaur', 'Sakshi Sharma', 'Sumit Thakur'].map(name => (
                   <label key={name} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: '#162032', border: selectedAssignee === name ? '1px solid #3b82f6' : '1px solid #283754', borderRadius: '10px', transition: 'all 0.2s' }}>
                     <input
                       type="radio"

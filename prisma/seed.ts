@@ -604,7 +604,7 @@ async function main() {
   const seedUsers = [
     { id: 'dev-usr-simran', username: 'simran@bizrank.com', name: 'Simran Kaur', role: 'DEVELOPER' },
     { id: 'dev-usr-sakshi', username: 'sakshi@bizrank.com', name: 'Sakshi Sharma', role: 'DEVELOPER' },
-    { id: 'dev-usr-sumit', username: 'sumit@bizrank.com', name: 'Sumit Chaudhary', role: 'DEVELOPER' },
+    { id: 'dev-usr-sumit', username: 'sumit@bizrank.com', name: 'Sumit Thakur', role: 'DEVELOPER' },
     { id: 'comm-usr-swati', username: 'swati@bizrank.com', name: 'Swati Chaudhary', role: 'COMMUNICATION' },
   ];
   for (const u of seedUsers) {

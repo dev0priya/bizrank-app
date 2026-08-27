@@ -98,7 +98,7 @@ export function Topbar() {
       case 'VIEWER': return 'Viewer User';
       case 'DEVELOPER_SIMRAN': return 'Simran Kaur (Dev)';
       case 'DEVELOPER_SAKSHI': return 'Sakshi Sharma (Dev)';
-      case 'DEVELOPER_SUMIT': return 'Sumit Chaudhary (Dev)';
+      case 'DEVELOPER_SUMIT': return 'Sumit Thakur (Dev)';
       case 'COMMUNICATION_SWATI': return 'Swati Chaudhary (Comm)';
       default: return 'Admin User';
     }
@@ -162,7 +162,7 @@ export function Topbar() {
             <option value="VIEWER" style={{ background: '#1e293b' }}>Viewer (Read Only)</option>
             <option value="DEVELOPER_SIMRAN" style={{ background: '#1e293b' }}>Simran Kaur (Developer)</option>
             <option value="DEVELOPER_SAKSHI" style={{ background: '#1e293b' }}>Sakshi Sharma (Developer)</option>
-            <option value="DEVELOPER_SUMIT" style={{ background: '#1e293b' }}>Sumit Chaudhary (Developer)</option>
+            <option value="DEVELOPER_SUMIT" style={{ background: '#1e293b' }}>Sumit Thakur (Developer)</option>
             <option value="COMMUNICATION_SWATI" style={{ background: '#1e293b' }}>Swati Chaudhary (Comm)</option>
           </select>
         </div>
