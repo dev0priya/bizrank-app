@@ -21,6 +21,7 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
   const [userRole, setUserRole] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   // Filters
   const [period, setPeriod] = useState('today');
@@ -46,13 +47,17 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
   const [commSubTab, setCommSubTab] = useState<'ALL' | 'CALL' | 'WHATSAPP' | 'EMAIL' | 'MEETING'>('ALL');
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     setCurrentSection(initialSection);
   }, [initialSection]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const username = localStorage.getItem('bizrank_active_username') || '';
-      const role = localStorage.getItem('bizrank_active_role') || '';
+      const username = localStorage.getItem('bizrank_active_username') || 'admin@bizrank.com';
+      const role = localStorage.getItem('bizrank_active_role') || 'ADMIN';
       setActiveUsername(username);
       setUserRole(role);
     }
@@ -62,7 +67,7 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
     setLoading(true);
     setError(null);
     try {
-      const activeRole = localStorage.getItem('bizrank_active_role') || '';
+      const activeRole = localStorage.getItem('bizrank_active_role') || 'ADMIN';
       if (activeRole !== 'ADMIN' && activeRole !== 'MANAGER') {
         throw new Error('Access Denied. Only Admin/Owner role is authorized to view My Workspace.');
       }
@@ -170,7 +175,7 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
   };
 
   const formatCurrency = (val: number) => {
-    return val.toLocaleString('en-IN', {
+    return (val || 0).toLocaleString('en-IN', {
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 0,
@@ -178,22 +183,66 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
     });
   };
 
+  // Client-side timezone safe date formatting to prevent hydration mismatches
+  const formatDate = (dateStr: string) => {
+    if (!mounted || !dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return 'Invalid Date';
+      return d.toLocaleDateString();
+    } catch {
+      return '';
+    }
+  };
+
+  const formatDateTime = (dateStr: string) => {
+    if (!mounted || !dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return 'Invalid Date';
+      return d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+    } catch {
+      return '';
+    }
+  };
+
+  const formatRecentActivityTime = (timeStr: string) => {
+    if (!mounted || !timeStr) return '';
+    try {
+      const d = new Date(timeStr);
+      if (isNaN(d.getTime())) return '';
+      return `— ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+    } catch {
+      return '';
+    }
+  };
+
+  // Utility to safely retrieve values from nested dot-notation paths (e.g. 'crmLead.business.business_name')
+  const getNestedValue = (obj: any, path: string) => {
+    if (!obj || !path) return undefined;
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+  };
+
   // Client-side search filters across components
   const filterBySearch = (list: any[], nameField = 'businessName') => {
+    if (!list) return [];
     if (!clientSearchQuery.trim()) return list;
     const query = clientSearchQuery.toLowerCase();
     return list.filter(item => {
-      const bizName = (item[nameField] || '').toLowerCase();
+      if (!item) return false;
+      const bizVal = getNestedValue(item, nameField);
+      const bizName = String(bizVal || '').toLowerCase();
       const leadId = String(item.id || item.leadId || '');
-      const assigned = (item.assignedTo || item.agent || '').toLowerCase();
-      const method = (item.lastContactMethod || '').toLowerCase();
-      const status = (item.status || '').toLowerCase();
+      const assigned = String(item.assignedTo || item.agent || '').toLowerCase();
+      const method = String(item.lastContactMethod || '').toLowerCase();
+      const status = String(item.status || '').toLowerCase();
       return bizName.includes(query) || leadId.includes(query) || assigned.includes(query) || method.includes(query) || status.includes(query);
     });
   };
 
   // Helper to categorize follow-ups
   const getFollowUpStatus = (dueAtStr: string) => {
+    if (!dueAtStr) return 'UPCOMING';
     const due = new Date(dueAtStr);
     const now = new Date();
     
@@ -209,13 +258,13 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
 
   // Calculate status summaries
   const getStatusSummary = () => {
-    const activeAttempts = filterBySearch(contactAttempts);
+    const activeAttempts = filterBySearch(contactAttempts || []);
     return {
-      replied: activeAttempts.filter(c => c.responseStatus?.toLowerCase() === 'replied' || c.responseStatus?.toLowerCase() === 'connected').length,
-      interested: activeAttempts.filter(c => c.status === 'Interested').length,
-      noResponse: activeAttempts.filter(c => c.status === 'No Response').length,
-      followUpRequired: activeAttempts.filter(c => c.status === 'Contacted' || c.status === 'Qualified').length,
-      notInterested: activeAttempts.filter(c => c.status === 'Lost' || c.status === 'Closed Lost').length
+      replied: activeAttempts.filter(c => c && (c.responseStatus?.toLowerCase() === 'replied' || c.responseStatus?.toLowerCase() === 'connected')).length,
+      interested: activeAttempts.filter(c => c && c.status === 'Interested').length,
+      noResponse: activeAttempts.filter(c => c && c.status === 'No Response').length,
+      followUpRequired: activeAttempts.filter(c => c && (c.status === 'Contacted' || c.status === 'Qualified')).length,
+      notInterested: activeAttempts.filter(c => c && (c.status === 'Lost' || c.status === 'Closed Lost')).length
     };
   };
 
@@ -223,7 +272,7 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
 
   // Columns totals for overview matrices
   const getTeamTotals = () => {
-    return teamActivity.reduce((acc, t) => {
+    return (teamActivity || []).reduce((acc, t) => {
       acc.leadsContacted += t.leadsContacted || 0;
       acc.calls += t.calls || 0;
       acc.whatsapp += t.whatsapp || 0;
@@ -253,13 +302,13 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
 
   // Consolidate all communications into single chronological log array
   const getAllCommunications = () => {
-    const callsLog = feeds.calls.map((c: any) => ({ ...c, type: 'CALL' }));
-    const whatsappLog = feeds.whatsapp.map((w: any) => ({ ...w, type: 'WHATSAPP' }));
-    const emailsLog = feeds.emails.map((e: any) => ({ ...e, type: 'EMAIL' }));
-    const meetingsLog = feeds.meetings.map((m: any) => ({ ...m, type: 'MEETING' }));
+    const callsLog = (feeds?.calls || []).map((c: any) => ({ ...c, type: 'CALL' }));
+    const whatsappLog = (feeds?.whatsapp || []).map((w: any) => ({ ...w, type: 'WHATSAPP' }));
+    const emailsLog = (feeds?.emails || []).map((e: any) => ({ ...e, type: 'EMAIL' }));
+    const meetingsLog = (feeds?.meetings || []).map((m: any) => ({ ...m, type: 'MEETING' }));
 
     const combined = [...callsLog, ...whatsappLog, ...emailsLog, ...meetingsLog];
-    return combined.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    return combined.sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
   };
 
   const allCommunications = getAllCommunications();
@@ -308,19 +357,20 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
   }
 
   // Filtered array variables based on client side search query
-  const activeNoResponse = filterBySearch(noResponseTracker);
-  const activeFollowups = filterBySearch(followUpsList, 'crmLead.business.business_name');
-  const activeAttempts = filterBySearch(contactAttempts);
-  const activeLiveFeed = filterBySearch(liveFeed);
-  const activeCommunications = filterBySearch(allCommunications);
+  const activeNoResponse = filterBySearch(noResponseTracker || []);
+  const activeFollowups = filterBySearch(followUpsList || [], 'crmLead.business.business_name');
+  const activeAttempts = filterBySearch(contactAttempts || []);
+  const activeLiveFeed = filterBySearch(liveFeed || []);
+  const activeCommunications = filterBySearch(allCommunications || []);
 
   // Split pending vs completed followups for Section 4
-  const overdueFollowups = activeFollowups.filter(f => getFollowUpStatus(f.dueAt) === 'OVERDUE');
-  const todayFollowups = activeFollowups.filter(f => getFollowUpStatus(f.dueAt) === 'TODAY');
-  const upcomingFollowups = activeFollowups.filter(f => getFollowUpStatus(f.dueAt) === 'UPCOMING');
+  const overdueFollowups = activeFollowups.filter(f => f && getFollowUpStatus(f.dueAt) === 'OVERDUE');
+  const todayFollowups = activeFollowups.filter(f => f && getFollowUpStatus(f.dueAt) === 'TODAY');
+  const upcomingFollowups = activeFollowups.filter(f => f && getFollowUpStatus(f.dueAt) === 'UPCOMING');
   
   // Followups completed inside selected time range
-  const completedFollowups = feeds.calls.filter((c: any) => c.summary?.toLowerCase().includes('followup') || c.summary?.toLowerCase().includes('follow-up'))
+  const completedFollowups = (feeds?.calls || [])
+    .filter((c: any) => c && ((c.summary || '').toLowerCase().includes('followup') || (c.summary || '').toLowerCase().includes('follow-up')))
     .map((c: any) => ({
       id: c.id,
       crmLeadId: c.leadId,
@@ -510,7 +560,7 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
               <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }} className="no-scrollbar">
                 {activeLiveFeed.length === 0 ? <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '20px 0' }}>No activity found.</div> : activeLiveFeed.slice(0, 5).map(act => (
                   <div key={act.id} style={{ fontSize: '12px', padding: '6px', background: '#f8fafc', borderRadius: '4px' }}>
-                    <strong>{act.agent}</strong> {act.action.toLowerCase()} to {act.businessName}
+                    <strong>{act.agent || 'System'}</strong> {String(act.action || '').toLowerCase()} to {act.businessName || 'Business'}
                   </div>
                 ))}
               </div>
@@ -525,7 +575,7 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
               <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }} className="no-scrollbar">
                 {activeFollowups.length === 0 ? <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '20px 0' }}>No followups due.</div> : activeFollowups.slice(0, 5).map(fu => (
                   <div key={fu.id} style={{ fontSize: '12px', padding: '6px', background: '#f8fafc', borderRadius: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{fu.crmLead?.business?.business_name}</span>
+                    <span>{fu.crmLead?.business?.business_name || 'Business'}</span>
                     <span style={{ color: '#b45309', fontWeight: 600 }}>{getFollowUpStatus(fu.dueAt)}</span>
                   </div>
                 ))}
@@ -541,8 +591,8 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
               <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }} className="no-scrollbar">
                 {activeNoResponse.length === 0 ? <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '20px 0' }}>No leads tracked.</div> : activeNoResponse.slice(0, 5).map(n => (
                   <div key={n.id} style={{ fontSize: '12px', padding: '6px', background: '#fef2f2', borderRadius: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{n.businessName}</span>
-                    <span style={{ color: '#991b1b', fontWeight: 700 }}>{n.attempts} attempts</span>
+                    <span>{n.businessName || 'Business'}</span>
+                    <span style={{ color: '#991b1b', fontWeight: 700 }}>{n.attempts || 0} attempts</span>
                   </div>
                 ))}
               </div>
@@ -672,7 +722,7 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
                           {com.type}
                         </span>
                       </td>
-                      <td style={{ padding: '12px', color: '#64748b' }}>{new Date(com.time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</td>
+                      <td style={{ padding: '12px', color: '#64748b' }}>{formatDateTime(com.time)}</td>
                       <td style={{ padding: '12px', fontWeight: 500 }}>{com.outcome || 'Sent'}</td>
                       <td style={{ padding: '12px', textAlign: 'right' }}>
                         <span className="badge badge-priority-b" style={{ fontSize: '11px' }}>Active</span>
@@ -733,10 +783,10 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
                   overdueFollowups.length === 0 ? <tr><td colSpan={6} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No overdue follow-ups.</td></tr> : overdueFollowups.map(fu => (
                     <tr key={fu.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px', fontWeight: 600 }}>
-                        <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name}</Link>
+                        <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name || 'Business'}</Link>
                       </td>
                       <td style={{ padding: '10px' }}>{fu.assignedTo || 'Unassigned'}</td>
-                      <td style={{ padding: '10px', color: '#dc2626', fontWeight: 600 }}>{new Date(fu.dueAt).toLocaleDateString()}</td>
+                      <td style={{ padding: '10px', color: '#dc2626', fontWeight: 600 }}>{formatDate(fu.dueAt)}</td>
                       <td style={{ padding: '10px' }}>{fu.crmLead?.priority || 'Normal'}</td>
                       <td style={{ padding: '10px', color: '#dc2626', fontWeight: 700 }}>🔴 OVERDUE</td>
                       <td style={{ padding: '10px', textAlign: 'right', display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
@@ -753,10 +803,10 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
                   todayFollowups.length === 0 ? <tr><td colSpan={6} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No follow-ups due today.</td></tr> : todayFollowups.map(fu => (
                     <tr key={fu.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px', fontWeight: 600 }}>
-                        <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name}</Link>
+                        <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name || 'Business'}</Link>
                       </td>
                       <td style={{ padding: '10px' }}>{fu.assignedTo || 'Unassigned'}</td>
-                      <td style={{ padding: '10px', color: '#b45309', fontWeight: 600 }}>{new Date(fu.dueAt).toLocaleDateString()}</td>
+                      <td style={{ padding: '10px', color: '#b45309', fontWeight: 600 }}>{formatDate(fu.dueAt)}</td>
                       <td style={{ padding: '10px' }}>{fu.crmLead?.priority || 'Normal'}</td>
                       <td style={{ padding: '10px', color: '#b45309', fontWeight: 700 }}> 🟠 TODAY</td>
                       <td style={{ padding: '10px', textAlign: 'right', display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
@@ -773,10 +823,10 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
                   upcomingFollowups.length === 0 ? <tr><td colSpan={6} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No upcoming follow-ups.</td></tr> : upcomingFollowups.map(fu => (
                     <tr key={fu.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px', fontWeight: 600 }}>
-                        <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name}</Link>
+                        <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name || 'Business'}</Link>
                       </td>
                       <td style={{ padding: '10px' }}>{fu.assignedTo || 'Unassigned'}</td>
-                      <td style={{ padding: '10px', color: '#16a34a' }}>{new Date(fu.dueAt).toLocaleDateString()}</td>
+                      <td style={{ padding: '10px', color: '#16a34a' }}>{formatDate(fu.dueAt)}</td>
                       <td style={{ padding: '10px' }}>{fu.crmLead?.priority || 'Normal'}</td>
                       <td style={{ padding: '10px', color: '#16a34a', fontWeight: 700 }}>🟢 UPCOMING</td>
                       <td style={{ padding: '10px', textAlign: 'right', display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
@@ -793,10 +843,10 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
                   completedFollowups.length === 0 ? <tr><td colSpan={6} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No completed follow-ups logged in range.</td></tr> : completedFollowups.map((fu: any, index: number) => (
                     <tr key={index} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px', fontWeight: 600 }}>
-                        <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name}</Link>
+                        <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name || 'Business'}</Link>
                       </td>
                       <td style={{ padding: '10px' }}>{fu.assignedTo || 'Unassigned'}</td>
-                      <td style={{ padding: '10px', color: '#64748b' }}>{new Date(fu.dueAt).toLocaleString()}</td>
+                      <td style={{ padding: '10px', color: '#64748b' }}>{formatDateTime(fu.dueAt)}</td>
                       <td style={{ padding: '10px' }}>{fu.priority}</td>
                       <td style={{ padding: '10px', color: '#16a34a', fontWeight: 700 }}>✅ COMPLETED</td>
                       <td style={{ padding: '10px', textAlign: 'right' }}>
@@ -837,21 +887,21 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
                   </tr>
                 ) : (
                   activeNoResponse.map(n => {
-                    const attemptsDetail = activeAttempts.find(c => c.id === n.id);
+                    const attemptsDetail = activeAttempts.find(c => c && c.id === n.id);
                     return (
                       <tr key={n.id} style={{ borderBottom: '1px solid #e2e8f0', color: '#334155' }}>
                         <td style={{ padding: '12px', fontWeight: 600 }}>
-                          <Link href={`/crm/leads/${n.id}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{n.businessName}</Link>
+                          <Link href={`/crm/leads/${n.id}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{n.businessName || 'Business'}</Link>
                         </td>
                         <td style={{ padding: '12px' }}>{n.assignedTo}</td>
                         <td style={{ padding: '12px', textAlign: 'center' }}>{attemptsDetail?.calls || 0}</td>
                         <td style={{ padding: '12px', textAlign: 'center' }}>{attemptsDetail?.whatsapp || 0}</td>
-                        <td style={{ padding: '12px', textAlign: 'center', fontWeight: 700 }}>{n.attempts}</td>
-                        <td style={{ padding: '12px', color: '#64748b' }}>{n.lastContactDate ? new Date(n.lastContactDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Never'}</td>
+                        <td style={{ padding: '12px', textAlign: 'center', fontWeight: 700 }}>{n.attempts || 0}</td>
+                        <td style={{ padding: '12px', color: '#64748b' }}>{n.lastContactDate ? formatDateTime(n.lastContactDate) : 'Never'}</td>
                         <td style={{ padding: '12px' }}>
                           <span style={{ fontSize: '11px', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', color: '#475569', fontWeight: 600 }}>{n.lastContactMethod}</span>
                         </td>
-                        <td style={{ padding: '12px', color: '#d97706' }}>{n.nextFollowUp ? new Date(n.nextFollowUp).toLocaleDateString() : 'None Scheduled'}</td>
+                        <td style={{ padding: '12px', color: '#d97706' }}>{n.nextFollowUp ? formatDate(n.nextFollowUp) : 'None Scheduled'}</td>
                         <td style={{ padding: '12px', textAlign: 'right' }}>
                           <span className="badge badge-priority-c" style={{ fontSize: '11px' }}>{n.status}</span>
                         </td>
@@ -894,17 +944,17 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
                   activeAttempts.map(c => (
                     <tr key={c.id} style={{ borderBottom: '1px solid #e2e8f0', color: '#334155' }}>
                       <td style={{ padding: '12px', fontWeight: 600 }}>
-                        <Link href={`/crm/leads/${c.id}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{c.businessName}</Link>
+                        <Link href={`/crm/leads/${c.id}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{c.businessName || 'Business'}</Link>
                       </td>
                       <td style={{ padding: '12px' }}>{c.assignedTo}</td>
-                      <td style={{ padding: '12px', textAlign: 'center' }}>{c.calls}</td>
-                      <td style={{ padding: '12px', textAlign: 'center' }}>{c.whatsapp}</td>
-                      <td style={{ padding: '12px', textAlign: 'center' }}>{c.emails}</td>
-                      <td style={{ padding: '12px', textAlign: 'center' }}>{c.meetings}</td>
-                      <td style={{ padding: '12px', textAlign: 'center', fontWeight: 700 }}>{c.totalAttempts}</td>
-                      <td style={{ padding: '12px', color: '#64748b', fontSize: '12px' }}>{c.lastContactDate ? new Date(c.lastContactDate).toLocaleDateString() : 'Never'}</td>
+                      <td style={{ padding: '12px', textAlign: 'center' }}>{c.calls || 0}</td>
+                      <td style={{ padding: '12px', textAlign: 'center' }}>{c.whatsapp || 0}</td>
+                      <td style={{ padding: '12px', textAlign: 'center' }}>{c.emails || 0}</td>
+                      <td style={{ padding: '12px', textAlign: 'center' }}>{c.meetings || 0}</td>
+                      <td style={{ padding: '12px', textAlign: 'center', fontWeight: 700 }}>{c.totalAttempts || 0}</td>
+                      <td style={{ padding: '12px', color: '#64748b', fontSize: '12px' }}>{c.lastContactDate ? formatDate(c.lastContactDate) : 'Never'}</td>
                       <td style={{ padding: '12px' }}>
-                        <span style={{ fontSize: '11px', color: c.responseStatus?.toLowerCase() === 'connected' || c.responseStatus?.toLowerCase() === 'replied' ? '#166534' : '#64748b', fontWeight: 600 }}>{c.responseStatus}</span>
+                        <span style={{ fontSize: '11px', color: (c.responseStatus || '').toLowerCase() === 'connected' || (c.responseStatus || '').toLowerCase() === 'replied' ? '#166534' : '#64748b', fontWeight: 600 }}>{c.responseStatus}</span>
                       </td>
                       <td style={{ padding: '12px', textAlign: 'right' }}>
                         <span className={`badge ${c.status === 'Interested' ? 'badge-priority-a' : 'badge-priority-c'}`} style={{ fontSize: '11px' }}>{c.status}</span>
@@ -934,10 +984,10 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
                   fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#1e293b'
                 }}>
                   <span>
-                    <strong>{act.agent}</strong> {act.action.toLowerCase()} to <Link href={`/crm/leads/${act.leadId}`} style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>{act.businessName}</Link>
+                    <strong>{act.agent || 'System'}</strong> {String(act.action || '').toLowerCase()} to <Link href={`/crm/leads/${act.leadId}`} style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>{act.businessName || 'Business'}</Link>
                   </span>
                   <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
-                    — {new Date(act.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {new Date(act.time).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                    {formatRecentActivityTime(act.time)}
                   </span>
                 </div>
               ))
@@ -988,7 +1038,7 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
                   teamActivity.map(t => (
                     <tr key={t.username} style={{ borderBottom: '1px solid #e2e8f0', color: '#334155' }}>
                       <td style={{ padding: '12px', fontWeight: 600 }}>{t.name}</td>
-                      <td style={{ padding: '10px', textAlign: 'right' }}>{t.leadsCount}</td>
+                      <td style={{ padding: '10px', textAlign: 'right' }}>{t.leadsCount || 0}</td>
                       <td style={{ padding: '10px', textAlign: 'right' }}>{t.leadsContacted || 0}</td>
                       <td style={{ padding: '10px', textAlign: 'right' }}>{t.calls || 0}</td>
                       <td style={{ padding: '10px', textAlign: 'right' }}>{t.whatsapp || 0}</td>
@@ -1000,7 +1050,7 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
                       <td style={{ padding: '10px', textAlign: 'right', color: '#2563eb', fontWeight: 500 }}>{t.interested || 0}</td>
                       <td style={{ padding: '10px', textAlign: 'right' }}>{t.proposals || 0}</td>
                       <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>{t.won || 0}</td>
-                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700 }}>{t.conversionRate}%</td>
+                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700 }}>{t.conversionRate || 0}%</td>
                       <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>{formatCurrency(t.revenue || 0)}</td>
                     </tr>
                   ))

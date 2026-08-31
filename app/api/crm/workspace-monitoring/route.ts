@@ -192,9 +192,9 @@ export async function GET(request: Request) {
         const contactedLeads = Array.from(new Set(periodActivities.map(a => a.crmLeadId)));
         const totalLeadsContacted = contactedLeads.length;
         const totalCalls = periodActivities.filter(a => a.type === 'CALL').length;
-        const totalWhatsAppSent = periodActivities.filter(a => a.type === 'WHATSAPP' && (a.summary.toLowerCase().includes('sent') || a.details?.toLowerCase().includes('sent'))).length;
-        const totalWhatsAppReplied = periodActivities.filter(a => a.type === 'WHATSAPP' && (a.outcome?.toLowerCase() === 'replied' || a.details?.toLowerCase().includes('replied'))).length;
-        const totalConversations = periodActivities.filter(a => a.type === 'CALL' && a.outcome?.toLowerCase() === 'connected').length + totalWhatsAppReplied;
+        const totalWhatsAppSent = periodActivities.filter(a => a.type === 'WHATSAPP' && (((a.summary || '').toLowerCase().includes('sent')) || ((a.details || '').toLowerCase().includes('sent')))).length;
+        const totalWhatsAppReplied = periodActivities.filter(a => a.type === 'WHATSAPP' && (((a.outcome || '').toLowerCase() === 'replied') || ((a.details || '').toLowerCase().includes('replied')))).length;
+        const totalConversations = periodActivities.filter(a => a.type === 'CALL' && ((a.outcome || '').toLowerCase() === 'connected')).length + totalWhatsAppReplied;
 
         const followUpsCompleted = periodFollowUps.filter(f => f.status === 'COMPLETED').length;
         const followUpsPending = periodFollowUps.filter(f => f.status === 'PENDING').length;
@@ -213,7 +213,7 @@ export async function GET(request: Request) {
 
             const calls = userActivities.filter(a => a.type === 'CALL').length;
             const whatsapp = userActivities.filter(a => a.type === 'WHATSAPP').length;
-            const conversations = userActivities.filter(a => (a.type === 'CALL' && a.outcome?.toLowerCase() === 'connected') || (a.type === 'WHATSAPP' && a.outcome?.toLowerCase() === 'replied')).length;
+            const conversations = userActivities.filter(a => (a.type === 'CALL' && (a.outcome || '').toLowerCase() === 'connected') || (a.type === 'WHATSAPP' && (a.outcome || '').toLowerCase() === 'replied')).length;
             const noResponse = userLeads.filter(l => l.clientStatus === 'No Response').length;
             const followUps = userFollowUps.filter(f => f.status === 'COMPLETED').length;
             const interested = userLeads.filter(l => l.clientStatus === 'Interested').length;
