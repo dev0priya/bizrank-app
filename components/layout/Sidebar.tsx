@@ -258,10 +258,10 @@ export function Sidebar() {
             // Apply Role-Based Access Control
             const visibleItems = section.items.filter(item => {
               if (userRole === 'SALES_AGENT' || userRole === 'COMMUNICATION') {
-                return ['Dashboard', 'Business Discovery', 'Leads', 'Deals', 'Customers', 'Websites', 'Tasks', 'Activities'].includes(item.name);
+                return ['Dashboard', 'Business Discovery', 'Leads', 'My Workspace', 'Deals', 'Customers', 'Websites', 'Tasks', 'Activities'].includes(item.name);
               }
               if (userRole === 'DEVELOPER') {
-                return ['Dashboard', 'Websites', 'Tasks', 'Customers', 'Activities'].includes(item.name);
+                return ['Dashboard', 'My Workspace', 'Websites', 'Tasks', 'Customers', 'Activities'].includes(item.name);
               }
               // Admin/Manager has access to all
               return true;

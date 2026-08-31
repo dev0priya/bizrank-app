@@ -8,11 +8,6 @@ export async function GET(request: Request) {
     try {
         const { role, username } = getAuthorizedUser(request);
         
-        // 1. Enforce strict role check: Admin/Owner (ADMIN or MANAGER roles) only
-        if (role !== 'ADMIN' && role !== 'MANAGER') {
-            return NextResponse.json({ error: 'Forbidden: Admin/Owner access only' }, { status: 403 });
-        }
-
         const { searchParams } = new URL(request.url);
         const period = searchParams.get('period') || 'today';
         const startDateStr = searchParams.get('startDate');

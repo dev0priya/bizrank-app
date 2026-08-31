@@ -68,10 +68,6 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
     setError(null);
     try {
       const activeRole = localStorage.getItem('bizrank_active_role') || 'ADMIN';
-      if (activeRole !== 'ADMIN' && activeRole !== 'MANAGER') {
-        throw new Error('Access Denied. Only Admin/Owner role is authorized to view My Workspace.');
-      }
-
       const headers: any = {
         'Content-Type': 'application/json',
         'x-user-role': activeRole,
@@ -312,22 +308,6 @@ export default function WorkspaceClient({ stages, initialSection = 'overview' }:
   };
 
   const allCommunications = getAllCommunications();
-
-  // If user role is loaded and is not admin/owner
-  if (userRole && userRole !== 'ADMIN' && userRole !== 'MANAGER') {
-    return (
-      <div style={{ padding: '60px 40px', textAlign: 'center', maxWidth: '600px', margin: '40px auto', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <ShieldAlert size={56} style={{ color: '#ef4444', marginBottom: '20px' }} />
-        <h2 style={{ color: '#0f172a', marginBottom: '12px', fontWeight: 700 }}>Access Denied</h2>
-        <p style={{ color: '#475569', lineHeight: '1.6', marginBottom: '24px' }}>
-          This workspace is reserved exclusively for system administrators and managers to monitor team activities. Your role is registered as <strong style={{ color: '#2563eb' }}>{userRole}</strong>.
-        </p>
-        <Link href="/crm/dashboard" className="btn-primary" style={{ padding: '10px 24px', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, background: '#2563eb', color: '#fff', border: 'none' }}>
-          Go to Dashboard
-        </Link>
-      </div>
-    );
-  }
 
   if (loading) {
     return (
