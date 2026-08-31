@@ -11,12 +11,12 @@ import {
   FolderMinus, FileText, Award
 } from 'lucide-react';
 
-export default function WorkspaceClient({ stages }: { stages: any[] }) {
+export default function WorkspaceClient({ stages, initialSection = 'overview' }: { stages: any[], initialSection?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const currentSection = searchParams.get('section') || 'overview';
 
+  const [currentSection, setCurrentSection] = useState(initialSection);
   const [activeUsername, setActiveUsername] = useState('');
   const [userRole, setUserRole] = useState('');
   const [loading, setLoading] = useState(true);
@@ -41,6 +41,13 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
 
   // Follow up active visual tab
   const [followUpTab, setFollowUpTab] = useState<'overdue' | 'today' | 'upcoming' | 'completed'>('today');
+  
+  // Communication sub-tab filter
+  const [commSubTab, setCommSubTab] = useState<'ALL' | 'CALL' | 'WHATSAPP' | 'EMAIL' | 'MEETING'>('ALL');
+
+  useEffect(() => {
+    setCurrentSection(initialSection);
+  }, [initialSection]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -105,9 +112,61 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
   }, [userRole, period, startDate, endDate, selectedAgent]);
 
   const handleSectionChange = (sectionName: string) => {
+    setCurrentSection(sectionName);
     const params = new URLSearchParams(searchParams.toString());
     params.set('section', sectionName);
     router.push(`${pathname}?${params.toString()}`);
+  };
+
+  // Follow-up actions
+  const handleCompleteFollowUp = async (fuId: number) => {
+    try {
+      const activeRole = localStorage.getItem('bizrank_active_role') || 'ADMIN';
+      const res = await fetch(`/api/crm/follow-ups/${fuId}`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-role': activeRole,
+          'x-user-username': localStorage.getItem('bizrank_active_username') || 'admin@bizrank.com'
+        },
+        body: JSON.stringify({ status: 'COMPLETED', outcome: 'Completed from Workspace Dashboard' })
+      });
+      if (res.ok) {
+        alert('Follow-up completed successfully.');
+        loadWorkspaceData();
+      } else {
+        const data = await res.json();
+        alert(`Error: ${data.error}`);
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
+  };
+
+  const handleRescheduleFollowUp = async (fuId: number) => {
+    const nextDate = prompt('Enter next follow-up date and time (YYYY-MM-DDTHH:MM):', new Date(Date.now() + 24*60*60*1000).toISOString().slice(0, 16));
+    if (!nextDate) return;
+    try {
+      const activeRole = localStorage.getItem('bizrank_active_role') || 'ADMIN';
+      const res = await fetch(`/api/crm/follow-ups/${fuId}`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-role': activeRole,
+          'x-user-username': localStorage.getItem('bizrank_active_username') || 'admin@bizrank.com'
+        },
+        body: JSON.stringify({ dueAt: new Date(nextDate).toISOString() })
+      });
+      if (res.ok) {
+        alert('Follow-up rescheduled successfully.');
+        loadWorkspaceData();
+      } else {
+        const data = await res.json();
+        alert(`Error: ${data.error}`);
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
   };
 
   const formatCurrency = (val: number) => {
@@ -427,7 +486,7 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
           {/* Attention Required section in overview */}
           {alerts.length > 0 && (
             <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
-              <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#ef4444', fontWeight: 700 }}>Attention Required alerts</h3>
+              <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#ef4444', fontWeight: 700 }}>Attention Required</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '8px' }}>
                 {alerts.slice(0, 3).map((item, idx) => (
                   <div key={idx} style={{ fontSize: '12px', padding: '8px 10px', background: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '4px', color: '#991b1b', display: 'flex', justifyContent: 'space-between' }}>
@@ -553,7 +612,33 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
       {/* ---------------- 3. COMMUNICATION ---------------- */}
       {currentSection === 'communication' && (
         <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 700 }}>Communication Activity Timeline</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Communication Activity Timeline</h3>
+            
+            {/* Tab sub-filters for Communication */}
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {[
+                { id: 'ALL', label: 'All Activities' },
+                { id: 'CALL', label: '📞 Calls' },
+                { id: 'WHATSAPP', label: '💬 WhatsApp' },
+                { id: 'EMAIL', label: '✉️ Emails' },
+                { id: 'MEETING', label: '🤝 Meetings' }
+              ].map(sub => (
+                <button
+                  key={sub.id}
+                  onClick={() => setCommSubTab(sub.id as any)}
+                  style={{
+                    padding: '6px 12px', borderRadius: '4px', fontSize: '12px', border: '1px solid #e2e8f0', cursor: 'pointer', fontWeight: 600,
+                    background: commSubTab === sub.id ? '#f1f5f9' : '#fff',
+                    color: '#334155'
+                  }}
+                >
+                  {sub.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
               <thead>
@@ -567,12 +652,12 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
                 </tr>
               </thead>
               <tbody>
-                {activeCommunications.length === 0 ? (
+                {activeCommunications.filter(com => commSubTab === 'ALL' || com.type === commSubTab).length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>No communication activity logged yet.</td>
+                    <td colSpan={6} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>No communication activity logged in this view.</td>
                   </tr>
                 ) : (
-                  activeCommunications.map((com, idx) => (
+                  activeCommunications.filter(com => commSubTab === 'ALL' || com.type === commSubTab).map((com, idx) => (
                     <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0', color: '#334155' }}>
                       <td style={{ padding: '12px', fontWeight: 600 }}>
                         <Link href={`/crm/leads/${com.leadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{com.businessName}</Link>
@@ -581,8 +666,8 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
                       <td style={{ padding: '12px' }}>
                         <span style={{
                           fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '4px',
-                          background: com.type === 'CALL' ? '#eff6ff' : com.type === 'WHATSAPP' ? '#f0fdf4' : '#f1f5f9',
-                          color: com.type === 'CALL' ? '#2563eb' : com.type === 'WHATSAPP' ? '#16a34a' : '#475569'
+                          background: com.type === 'CALL' ? '#eff6ff' : com.type === 'WHATSAPP' ? '#f0fdf4' : com.type === 'EMAIL' ? '#f1f5f9' : '#fffbeb',
+                          color: com.type === 'CALL' ? '#2563eb' : com.type === 'WHATSAPP' ? '#16a34a' : com.type === 'EMAIL' ? '#475569' : '#d97706'
                         }}>
                           {com.type}
                         </span>
@@ -638,13 +723,14 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
                   <th style={{ padding: '10px' }}>Assigned To</th>
                   <th style={{ padding: '10px' }}>Follow-up Date</th>
                   <th style={{ padding: '10px' }}>Priority</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Status</th>
+                  <th style={{ padding: '10px' }}>Status</th>
+                  <th style={{ padding: '10px', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {/* Overdue */}
                 {followUpTab === 'overdue' && (
-                  overdueFollowups.length === 0 ? <tr><td colSpan={5} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No overdue follow-ups.</td></tr> : overdueFollowups.map(fu => (
+                  overdueFollowups.length === 0 ? <tr><td colSpan={6} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No overdue follow-ups.</td></tr> : overdueFollowups.map(fu => (
                     <tr key={fu.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px', fontWeight: 600 }}>
                         <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name}</Link>
@@ -652,14 +738,19 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
                       <td style={{ padding: '10px' }}>{fu.assignedTo || 'Unassigned'}</td>
                       <td style={{ padding: '10px', color: '#dc2626', fontWeight: 600 }}>{new Date(fu.dueAt).toLocaleDateString()}</td>
                       <td style={{ padding: '10px' }}>{fu.crmLead?.priority || 'Normal'}</td>
-                      <td style={{ padding: '10px', textAlign: 'right', color: '#dc2626', fontWeight: 700 }}>🔴 OVERDUE</td>
+                      <td style={{ padding: '10px', color: '#dc2626', fontWeight: 700 }}>🔴 OVERDUE</td>
+                      <td style={{ padding: '10px', textAlign: 'right', display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                        <Link href={`/crm/leads/${fu.crmLeadId}`} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11px', textDecoration: 'none', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '4px', color: '#0f172a' }}>Open Lead</Link>
+                        <button onClick={() => handleCompleteFollowUp(fu.id)} style={{ padding: '4px 8px', fontSize: '11px', background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '4px', color: '#15803d', cursor: 'pointer', fontWeight: 600 }}>Complete</button>
+                        <button onClick={() => handleRescheduleFollowUp(fu.id)} style={{ padding: '4px 8px', fontSize: '11px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '4px', color: '#b45309', cursor: 'pointer', fontWeight: 600 }}>Reschedule</button>
+                      </td>
                     </tr>
                   ))
                 )}
 
                 {/* Today */}
                 {followUpTab === 'today' && (
-                  todayFollowups.length === 0 ? <tr><td colSpan={5} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No follow-ups due today.</td></tr> : todayFollowups.map(fu => (
+                  todayFollowups.length === 0 ? <tr><td colSpan={6} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No follow-ups due today.</td></tr> : todayFollowups.map(fu => (
                     <tr key={fu.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px', fontWeight: 600 }}>
                         <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name}</Link>
@@ -667,14 +758,19 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
                       <td style={{ padding: '10px' }}>{fu.assignedTo || 'Unassigned'}</td>
                       <td style={{ padding: '10px', color: '#b45309', fontWeight: 600 }}>{new Date(fu.dueAt).toLocaleDateString()}</td>
                       <td style={{ padding: '10px' }}>{fu.crmLead?.priority || 'Normal'}</td>
-                      <td style={{ padding: '10px', textAlign: 'right', color: '#b45309', fontWeight: 700 }}>🟠 TODAY</td>
+                      <td style={{ padding: '10px', color: '#b45309', fontWeight: 700 }}> 🟠 TODAY</td>
+                      <td style={{ padding: '10px', textAlign: 'right', display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                        <Link href={`/crm/leads/${fu.crmLeadId}`} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11px', textDecoration: 'none', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '4px', color: '#0f172a' }}>Open Lead</Link>
+                        <button onClick={() => handleCompleteFollowUp(fu.id)} style={{ padding: '4px 8px', fontSize: '11px', background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '4px', color: '#15803d', cursor: 'pointer', fontWeight: 600 }}>Complete</button>
+                        <button onClick={() => handleRescheduleFollowUp(fu.id)} style={{ padding: '4px 8px', fontSize: '11px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '4px', color: '#b45309', cursor: 'pointer', fontWeight: 600 }}>Reschedule</button>
+                      </td>
                     </tr>
                   ))
                 )}
 
                 {/* Upcoming */}
                 {followUpTab === 'upcoming' && (
-                  upcomingFollowups.length === 0 ? <tr><td colSpan={5} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No upcoming follow-ups.</td></tr> : upcomingFollowups.map(fu => (
+                  upcomingFollowups.length === 0 ? <tr><td colSpan={6} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No upcoming follow-ups.</td></tr> : upcomingFollowups.map(fu => (
                     <tr key={fu.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px', fontWeight: 600 }}>
                         <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name}</Link>
@@ -682,14 +778,19 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
                       <td style={{ padding: '10px' }}>{fu.assignedTo || 'Unassigned'}</td>
                       <td style={{ padding: '10px', color: '#16a34a' }}>{new Date(fu.dueAt).toLocaleDateString()}</td>
                       <td style={{ padding: '10px' }}>{fu.crmLead?.priority || 'Normal'}</td>
-                      <td style={{ padding: '10px', textAlign: 'right', color: '#16a34a', fontWeight: 700 }}>🟢 UPCOMING</td>
+                      <td style={{ padding: '10px', color: '#16a34a', fontWeight: 700 }}>🟢 UPCOMING</td>
+                      <td style={{ padding: '10px', textAlign: 'right', display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                        <Link href={`/crm/leads/${fu.crmLeadId}`} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11px', textDecoration: 'none', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '4px', color: '#0f172a' }}>Open Lead</Link>
+                        <button onClick={() => handleCompleteFollowUp(fu.id)} style={{ padding: '4px 8px', fontSize: '11px', background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: '4px', color: '#15803d', cursor: 'pointer', fontWeight: 600 }}>Complete</button>
+                        <button onClick={() => handleRescheduleFollowUp(fu.id)} style={{ padding: '4px 8px', fontSize: '11px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '4px', color: '#b45309', cursor: 'pointer', fontWeight: 600 }}>Reschedule</button>
+                      </td>
                     </tr>
                   ))
                 )}
 
                 {/* Completed */}
                 {followUpTab === 'completed' && (
-                  completedFollowups.length === 0 ? <tr><td colSpan={5} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No completed follow-ups logged in range.</td></tr> : completedFollowups.map((fu: any, index: number) => (
+                  completedFollowups.length === 0 ? <tr><td colSpan={6} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No completed follow-ups logged in range.</td></tr> : completedFollowups.map((fu: any, index: number) => (
                     <tr key={index} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px', fontWeight: 600 }}>
                         <Link href={`/crm/leads/${fu.crmLeadId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{fu.crmLead?.business?.business_name}</Link>
@@ -697,7 +798,10 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
                       <td style={{ padding: '10px' }}>{fu.assignedTo || 'Unassigned'}</td>
                       <td style={{ padding: '10px', color: '#64748b' }}>{new Date(fu.dueAt).toLocaleString()}</td>
                       <td style={{ padding: '10px' }}>{fu.priority}</td>
-                      <td style={{ padding: '10px', textAlign: 'right', color: '#16a34a', fontWeight: 700 }}>✅ COMPLETED</td>
+                      <td style={{ padding: '10px', color: '#16a34a', fontWeight: 700 }}>✅ COMPLETED</td>
+                      <td style={{ padding: '10px', textAlign: 'right' }}>
+                        <Link href={`/crm/leads/${fu.crmLeadId}`} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11px', textDecoration: 'none', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '4px', color: '#0f172a' }}>Open Lead</Link>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -717,13 +821,13 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
                 <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569', fontWeight: 600 }}>
                   <th style={{ padding: '12px' }}>Business</th>
                   <th style={{ padding: '12px' }}>Assigned To</th>
-                  <th style={{ padding: '12px', textAlign: 'center' }}>Number of Attempts</th>
                   <th style={{ padding: '12px', textAlign: 'center' }}>Calls</th>
                   <th style={{ padding: '12px', textAlign: 'center' }}>WhatsApp</th>
+                  <th style={{ padding: '12px', textAlign: 'center' }}>Total Attempts</th>
                   <th style={{ padding: '12px' }}>Last Contact Date</th>
                   <th style={{ padding: '12px' }}>Last Method</th>
                   <th style={{ padding: '12px' }}>Next Follow-up</th>
-                  <th style={{ padding: '12px', textAlign: 'right' }}>Current Lead Status</th>
+                  <th style={{ padding: '12px', textAlign: 'right' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -740,9 +844,9 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
                           <Link href={`/crm/leads/${n.id}`} style={{ color: '#2563eb', textDecoration: 'none' }}>{n.businessName}</Link>
                         </td>
                         <td style={{ padding: '12px' }}>{n.assignedTo}</td>
-                        <td style={{ padding: '12px', textAlign: 'center', fontWeight: 700 }}>{n.attempts}</td>
                         <td style={{ padding: '12px', textAlign: 'center' }}>{attemptsDetail?.calls || 0}</td>
                         <td style={{ padding: '12px', textAlign: 'center' }}>{attemptsDetail?.whatsapp || 0}</td>
+                        <td style={{ padding: '12px', textAlign: 'center', fontWeight: 700 }}>{n.attempts}</td>
                         <td style={{ padding: '12px', color: '#64748b' }}>{n.lastContactDate ? new Date(n.lastContactDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Never'}</td>
                         <td style={{ padding: '12px' }}>
                           <span style={{ fontSize: '11px', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', color: '#475569', fontWeight: 600 }}>{n.lastContactMethod}</span>
@@ -777,7 +881,7 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
                   <th style={{ padding: '12px', textAlign: 'center' }}>Meetings</th>
                   <th style={{ padding: '12px', textAlign: 'center' }}>Total Attempts</th>
                   <th style={{ padding: '12px' }}>Last Contact</th>
-                  <th style={{ padding: '12px' }}>Response Status</th>
+                  <th style={{ padding: '12px' }}>Response</th>
                   <th style={{ padding: '12px', textAlign: 'right' }}>Lead Status</th>
                 </tr>
               </thead>
@@ -826,14 +930,14 @@ export default function WorkspaceClient({ stages }: { stages: any[] }) {
             ) : (
               activeLiveFeed.map(act => (
                 <div key={act.id} style={{
-                  padding: '12px 18px', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc',
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px'
+                  padding: '12px 16px', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#ffffff',
+                  fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#1e293b'
                 }}>
-                  <div style={{ color: '#1e293b' }}>
-                    <strong>{act.agent}</strong> {act.action.toLowerCase()} to <Link href={`/crm/leads/${act.leadId}`} style={{ color: '#2563eb', fontWeight: 700, textDecoration: 'none' }}>{act.businessName}</Link>
-                  </div>
-                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
-                    {new Date(act.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <span>
+                    <strong>{act.agent}</strong> {act.action.toLowerCase()} to <Link href={`/crm/leads/${act.leadId}`} style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}>{act.businessName}</Link>
+                  </span>
+                  <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
+                    — {new Date(act.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {new Date(act.time).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                   </span>
                 </div>
               ))
