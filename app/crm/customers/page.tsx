@@ -1,13 +1,18 @@
 import React from 'react';
 import { prisma } from '../../../lib/prisma';
-import ProjectsClient from './ProjectsClient';
+import CustomersClient from './CustomersClient';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CRMProjectsPage() {
-    const projects = await prisma.cRMLead.findMany({
+export default async function CRMCustomersPage() {
+    // A Lead is considered a Customer when they are in "Closed Won" stage
+    // or have at least one deal with status "WON".
+    const customers = await prisma.cRMLead.findMany({
         where: {
-            developerId: { not: null }
+            OR: [
+                { pipelineStage: { name: 'Closed Won' } },
+                { deals: { some: { status: 'WON' } } }
+            ]
         },
         include: {
             business: {
@@ -17,7 +22,8 @@ export default async function CRMProjectsPage() {
                     state: true
                 }
             },
-            developer: true
+            deals: true,
+            contacts: true
         },
         orderBy: { updatedAt: 'desc' }
     });
@@ -25,10 +31,10 @@ export default async function CRMProjectsPage() {
     return (
         <React.Suspense fallback={
             <div className="crm-workspace" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <h3>Loading Website Projects...</h3>
+                <h3>Loading customers list...</h3>
             </div>
         }>
-            <ProjectsClient initialProjects={projects} />
+            <CustomersClient initialCustomers={customers} />
         </React.Suspense>
     );
 }

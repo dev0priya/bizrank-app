@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CheckSquare, Calendar, User, Clock, AlertCircle, 
   ExternalLink, Check, Trash2, ShieldAlert
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 const TASK_STATUSES = ['PENDING', 'COMPLETED', 'CANCELLED'];
 
@@ -16,6 +17,17 @@ export default function TasksClient({
 }) {
     const [tasks, setTasks] = useState(initialTasks);
     const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
+    const [assignedFilter, setAssignedFilter] = useState('');
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        const paramAssigned = searchParams.get('assignedTo');
+        if (paramAssigned) {
+            setAssignedFilter(paramAssigned);
+        } else {
+            setAssignedFilter('');
+        }
+    }, [searchParams]);
 
     const handleDragStart = (e: React.DragEvent, id: number) => {
         setDraggedTaskId(id);
@@ -107,7 +119,7 @@ export default function TasksClient({
                 paddingBottom: '16px'
             }}>
                 {TASK_STATUSES.map(status => {
-                    const statusTasks = tasks.filter(t => t.status === status);
+                    const statusTasks = tasks.filter(t => t.status === status && (!assignedFilter || t.assignedTo === assignedFilter));
 
                     return (
                         <div 

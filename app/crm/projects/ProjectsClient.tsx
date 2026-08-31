@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Briefcase, Globe, Clock, CheckCircle2, 
   ArrowRight, Search, User, ExternalLink 
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 export default function ProjectsClient({ 
     initialProjects 
@@ -15,6 +16,24 @@ export default function ProjectsClient({
     const [projects, setProjects] = useState(initialProjects);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [developerFilter, setDeveloperFilter] = useState('');
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        const paramDev = searchParams.get('developerUsername');
+        if (paramDev) {
+            setDeveloperFilter(paramDev);
+        } else {
+            setDeveloperFilter('');
+        }
+
+        const paramStatus = searchParams.get('status');
+        if (paramStatus) {
+            setStatusFilter(paramStatus);
+        } else {
+            setStatusFilter('ALL');
+        }
+    }, [searchParams]);
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -34,6 +53,15 @@ export default function ProjectsClient({
                         padding: '4px 10px', borderRadius: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', width: 'fit-content'
                     }}>
                         <Clock size={12} /> In Progress
+                    </span>
+                );
+            case 'DEMO_READY':
+                return (
+                    <span style={{ 
+                        fontSize: '11px', background: 'rgba(168,85,247,0.15)', color: '#a855f7', 
+                        padding: '4px 10px', borderRadius: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', width: 'fit-content'
+                    }}>
+                        <Globe size={12} /> Demo Ready
                     </span>
                 );
             case 'COMPLETED':
@@ -65,14 +93,26 @@ export default function ProjectsClient({
 
         const matchesStatus = statusFilter === 'ALL' || p.websiteStatus === statusFilter;
 
-        return matchesSearch && matchesStatus;
+        const matchesDeveloper = !developerFilter || 
+            p.developer?.username === developerFilter || 
+            p.developer?.name === developerFilter ||
+            p.assignedTo === developerFilter;
+
+        return matchesSearch && matchesStatus && matchesDeveloper;
     });
 
     // Counts
-    const totalCount = projects.length;
-    const assignedCount = projects.filter(p => p.websiteStatus === 'ASSIGNED').length;
-    const progressCount = projects.filter(p => p.websiteStatus === 'IN_PROGRESS').length;
-    const completedCount = projects.filter(p => p.websiteStatus === 'COMPLETED').length;
+    const developerProjects = projects.filter(p => {
+        return !developerFilter || 
+            p.developer?.username === developerFilter || 
+            p.developer?.name === developerFilter ||
+            p.assignedTo === developerFilter;
+    });
+    const totalCount = developerProjects.length;
+    const assignedCount = developerProjects.filter(p => p.websiteStatus === 'ASSIGNED').length;
+    const progressCount = developerProjects.filter(p => p.websiteStatus === 'IN_PROGRESS').length;
+    const demoReadyCount = developerProjects.filter(p => p.websiteStatus === 'DEMO_READY').length;
+    const completedCount = developerProjects.filter(p => p.websiteStatus === 'COMPLETED').length;
 
     return (
         <div style={{ paddingBottom: '40px' }}>
@@ -88,7 +128,7 @@ export default function ProjectsClient({
             </div>
 
             {/* KPI Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                 <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Total Projects</div>
                     <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-main)' }}>{totalCount}</div>
@@ -102,6 +142,10 @@ export default function ProjectsClient({
                     <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#f59e0b' }}>{progressCount}</div>
                 </div>
                 <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Demo Ready</div>
+                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#a855f7' }}>{demoReadyCount}</div>
+                </div>
+                <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Completed</div>
                     <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#10b981' }}>{completedCount}</div>
                 </div>
@@ -110,27 +154,28 @@ export default function ProjectsClient({
             {/* Filters */}
             <div className="glass-panel" style={{ display: 'flex', gap: '16px', padding: '16px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <div style={{ position: 'relative', flex: 1, minWidth: '250px' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input 
-                        type="text"
-                        placeholder="Search projects by business, developer, URL..."
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        style={{ width: '100%', padding: '10px 16px 10px 40px', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid var(--border-color)', borderRadius: '8px', outline: 'none', fontSize: '14px' }}
-                    />
+                  <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                      type="text"
+                      placeholder="Search projects by business, developer, URL..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      style={{ width: '100%', padding: '10px 16px 10px 40px', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid var(--border-color)', borderRadius: '8px', outline: 'none', fontSize: '14px' }}
+                  />
                 </div>
                 
                 <div>
-                    <select
-                        value={statusFilter}
-                        onChange={e => setStatusFilter(e.target.value)}
-                        style={{ padding: '10px 16px', background: '#111', color: 'white', border: '1px solid var(--border-color)', borderRadius: '8px', outline: 'none', fontSize: '14px' }}
-                    >
-                        <option value="ALL">All Stages</option>
-                        <option value="ASSIGNED">Assigned</option>
-                        <option value="IN_PROGRESS">In Progress</option>
-                        <option value="COMPLETED">Completed</option>
-                    </select>
+                  <select
+                      value={statusFilter}
+                      onChange={e => setStatusFilter(e.target.value)}
+                      style={{ padding: '10px 16px', background: '#111', color: 'white', border: '1px solid var(--border-color)', borderRadius: '8px', outline: 'none', fontSize: '14px' }}
+                  >
+                      <option value="ALL">All Stages</option>
+                      <option value="ASSIGNED">Assigned</option>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="DEMO_READY">Demo Ready</option>
+                      <option value="COMPLETED">Completed</option>
+                  </select>
                 </div>
             </div>
 

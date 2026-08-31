@@ -16,6 +16,7 @@ function FollowUpsContent() {
 
     // Query states
     const [tab, setTab] = useState<'TODAY' | 'UPCOMING' | 'OVERDUE' | 'COMPLETED' | 'ALL'>('TODAY');
+    const [users, setUsers] = useState<any[]>([]);
 
     useEffect(() => {
         const filter = searchParams.get('filter');
@@ -24,6 +25,10 @@ function FollowUpsContent() {
             if (['TODAY', 'UPCOMING', 'OVERDUE', 'COMPLETED', 'ALL'].includes(upperTab)) {
                 setTab(upperTab as any);
             }
+        }
+        const paramAssigned = searchParams.get('assignedTo');
+        if (paramAssigned) {
+            setAssignedTo(paramAssigned);
         }
     }, [searchParams]);
 
@@ -84,6 +89,18 @@ function FollowUpsContent() {
         }
     };
 
+    const fetchUsers = async () => {
+        try {
+            const res = await fetch('/api/crm/users');
+            if (res.ok) {
+                const uData = await res.json();
+                setUsers(uData);
+            }
+        } catch (err) {
+            console.error('Failed to load users', err);
+        }
+    };
+
     const fetchFollowUps = async () => {
         setLoading(true);
         setError(null);
@@ -113,6 +130,7 @@ function FollowUpsContent() {
 
     useEffect(() => {
         fetchStages();
+        fetchUsers();
     }, []);
 
     useEffect(() => {
@@ -335,6 +353,9 @@ function FollowUpsContent() {
                         >
                             <option value="">All Agents</option>
                             <option value="Admin">Admin</option>
+                            {users.map(u => (
+                                <option key={u.id} value={u.username}>{u.name}</option>
+                            ))}
                         </select>
                     </div>
 

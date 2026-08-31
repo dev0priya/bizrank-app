@@ -1,3 +1,4 @@
+import React, { Suspense } from 'react';
 import './globals.css';
 import type { Metadata } from 'next';
 import { Sidebar } from '../components/layout/Sidebar';
@@ -23,7 +24,9 @@ export default function RootLayout({
         <ThemeProvider>
           <MobileMenuProvider>
             <div className="app-container">
-              <Sidebar />
+              <Suspense fallback={<div style={{ width: '78px', background: 'var(--panel-bg)' }} />}>
+                <Sidebar />
+              </Suspense>
               
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
                 <Topbar />

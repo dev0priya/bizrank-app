@@ -17,5 +17,13 @@ export default async function CRMTasksPage() {
         orderBy: { dueAt: 'asc' }
     });
 
-    return <TasksClient initialTasks={tasks} />;
+    return (
+        <React.Suspense fallback={
+            <div className="crm-workspace" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <h3>Loading Tasks...</h3>
+            </div>
+        }>
+            <TasksClient initialTasks={tasks} />
+        </React.Suspense>
+    );
 }

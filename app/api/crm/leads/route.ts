@@ -181,13 +181,45 @@ export async function POST(request: Request) {
         }
 
         // Check if Lead already exists (Duplicate Protection)
-        const existing = await prisma.cRMLead.findUnique({
+        let existingLead = await prisma.cRMLead.findUnique({
             where: { businessId: parseInt(businessId) }
         });
 
-        if (existing) {
+        if (!existingLead) {
+            // Check for other duplicate business records in the database that are already in the CRM
+            const duplicateConditions: any[] = [];
+            if (business.place_id) {
+                duplicateConditions.push({ place_id: business.place_id });
+            }
+            if (business.phone_number && business.phone_number.trim()) {
+                duplicateConditions.push({ phone_number: business.phone_number });
+            }
+            if (business.business_name && business.city_id) {
+                duplicateConditions.push({
+                    business_name: { equals: business.business_name, mode: 'insensitive' },
+                    city_id: business.city_id
+                });
+            }
+
+            if (duplicateConditions.length > 0) {
+                const similarBusinesses = await prisma.business.findMany({
+                    where: {
+                        OR: duplicateConditions,
+                        id: { not: business.id }
+                    },
+                    include: { crm_lead: true }
+                });
+
+                const duplicateWithLead = similarBusinesses.find(b => b.crm_lead);
+                if (duplicateWithLead && duplicateWithLead.crm_lead) {
+                    existingLead = duplicateWithLead.crm_lead;
+                }
+            }
+        }
+
+        if (existingLead) {
             // Return existing lead id (Duplicate Protection criteria)
-            return NextResponse.json({ success: true, leadId: existing.id, message: 'Lead already promoted' });
+            return NextResponse.json({ success: true, leadId: existingLead.id, message: 'Lead already promoted' });
         }
 
         // Get 'New' stage

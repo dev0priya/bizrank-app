@@ -59,6 +59,7 @@ export default function LeadsClient({
     const [selectedScoreRange, setSelectedScoreRange] = useState('');
     const [selectedHandoffStatus, setSelectedHandoffStatus] = useState('');
     const [selectedFollowUpStatus, setSelectedFollowUpStatus] = useState('');
+    const [selectedAssignedTo, setSelectedAssignedTo] = useState('');
 
     // Legacy/Extra Filters (to keep support)
     const [selectedStage, setSelectedStage] = useState('');
@@ -85,6 +86,44 @@ export default function LeadsClient({
         };
         fetchUsers();
     }, []);
+
+    // Sync search parameters from URL into filter states
+    useEffect(() => {
+        const paramAssigned = searchParams.get('assignedTo');
+        if (paramAssigned !== null) {
+            setSelectedAssignedTo(paramAssigned);
+            setPage(1);
+        } else {
+            setSelectedAssignedTo('');
+        }
+
+        const paramStage = searchParams.get('stageId');
+        if (paramStage !== null) {
+            setSelectedStage(paramStage);
+            setPage(1);
+        }
+
+        const paramPriority = searchParams.get('priority');
+        if (paramPriority !== null) {
+            setSelectedPriority(paramPriority);
+            setPage(1);
+        }
+
+        const paramFilter = searchParams.get('filter');
+        if (paramFilter === 'hot') {
+            setSelectedPriority('A');
+            setSelectedScoreRange('high');
+            setPage(1);
+        } else if (paramFilter === 'new') {
+            const newStage = stages.find(s => s.name === 'New');
+            if (newStage) {
+                setSelectedStage(String(newStage.id));
+            } else {
+                setSelectedStage('1');
+            }
+            setPage(1);
+        }
+    }, [searchParams, stages]);
 
     const developers = users.filter(u => u.role === 'DEVELOPER');
 
@@ -169,6 +208,7 @@ export default function LeadsClient({
 
         // New Filters
         if (selectedDeveloper) params.append('developerId', selectedDeveloper);
+        if (selectedAssignedTo) params.append('assignedTo', selectedAssignedTo);
         if (selectedWebsiteStatus) params.append('websiteStatus', selectedWebsiteStatus);
         if (selectedHandoffStatus) params.append('handoffStatus', selectedHandoffStatus);
         if (selectedFollowUpStatus) params.append('followUpStatus', selectedFollowUpStatus);
@@ -214,7 +254,7 @@ export default function LeadsClient({
         page, debouncedSearch, selectedStage, selectedPriority, selectedCategory, 
         selectedState, selectedDeveloper, selectedWebsiteStatus, 
         selectedHandoffStatus, selectedFollowUpStatus, selectedScoreRange, 
-        sortField, sortOrder
+        selectedAssignedTo, sortField, sortOrder
     ]);
 
     useEffect(() => {
@@ -362,6 +402,16 @@ export default function LeadsClient({
                             <option value="">All Developers</option>
                             <option value="UNASSIGNED">Unassigned</option>
                             {developers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        </select>
+                    </div>
+
+                    {/* Salesperson Filter */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>Assigned Salesperson</label>
+                        <select className="select-input" value={selectedAssignedTo} onChange={e => { setSelectedAssignedTo(e.target.value); setPage(1); }}>
+                            <option value="">All Team Members</option>
+                            <option value="UNASSIGNED">Unassigned</option>
+                            {users.map(u => <option key={u.id} value={u.username}>{u.name}</option>)}
                         </select>
                     </div>
 
