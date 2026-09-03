@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:cloudflare": "opennextjs-cloudflare",
+    "preview:cloudflare": "wrangler dev",
+    "deploy:cloudflare": "npm run build:cloudflare && wrangler deploy",
     "start": "next start",
     "lint": "eslint .",
     "postinstall": "prisma generate",
@@ -22,6 +25,8 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@neondatabase/serverless": "^1.1.0",
+    "@prisma/adapter-neon": "^7.10.0",
     "@prisma/client": "^5.10.0",
     "@vercel/node": "^5.8.26",
     "apify-client": "^2.9.2",
@@ -35,9 +40,11 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "recharts": "^3.10.0",
+    "ws": "^8.21.3",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.4",
     "@types/json2csv": "^5.0.7",
     "@types/node": "^20.11.20",
     "@types/react": "19.2.17",
@@ -46,7 +53,8 @@
     "eslint": "^8.57.0",
     "prisma": "^5.10.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "wrangler": "^4.127.1"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
