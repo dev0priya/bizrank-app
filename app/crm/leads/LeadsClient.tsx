@@ -537,17 +537,32 @@ export default function LeadsClient({
                                             />
                                         </td>
 
-                                        {/* Business Details */}
-                                        <td style={{ padding: '16px 14px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-main)' }}>{lead.business.business_name}</div>
-                                                
-                                                {/* Maps icon link */}
-                                                {lead.business.google_maps_url && (
-                                                    <a href={lead.business.google_maps_url} target="_blank" rel="noreferrer" style={{ color: 'var(--text-muted)' }} title="Google Maps Link">
-                                                        <MapPin size={12} className="hover-link" />
-                                                    </a>
-                                                )}
+                                                {/* Business Details */}
+                                                <td style={{ padding: '16px 14px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-main)' }}>{lead.business.business_name}</div>
+                                                        
+                                                        {/* Workspace Share Badge */}
+                                                        {lead.workspaceShares && lead.workspaceShares.some((s: any) => s.status === 'ACCEPTED') && (
+                                                            <span style={{ 
+                                                                background: 'rgba(99, 102, 241, 0.15)', 
+                                                                color: '#818cf8', 
+                                                                border: '1px solid rgba(99, 102, 241, 0.3)', 
+                                                                borderRadius: '4px', 
+                                                                padding: '2px 6px', 
+                                                                fontSize: '11px', 
+                                                                fontWeight: 500 
+                                                            }}>
+                                                                Shared from {lead.workspaceShares.find((s: any) => s.status === 'ACCEPTED')?.sourceWorkspace?.name || "Swati's Workspace"}
+                                                            </span>
+                                                        )}
+
+                                                        {/* Maps icon link */}
+                                                        {lead.business.google_maps_url && (
+                                                            <a href={lead.business.google_maps_url} target="_blank" rel="noreferrer" style={{ color: 'var(--text-muted)' }} title="Google Maps Link">
+                                                                <MapPin size={12} className="hover-link" />
+                                                            </a>
+                                                        )}
 
                                                 {/* Existing website icon link */}
                                                 {lead.business.website && (

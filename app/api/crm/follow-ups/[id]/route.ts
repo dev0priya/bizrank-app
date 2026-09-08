@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
-import { FollowUpStatus } from '@prisma/client';
+const FollowUpStatus = {
+    COMPLETED: 'COMPLETED',
+    PENDING: 'PENDING',
+    CANCELLED: 'CANCELLED'
+};
 
 export async function GET(
     request: Request,

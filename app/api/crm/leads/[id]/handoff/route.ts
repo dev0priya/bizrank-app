@@ -88,6 +88,56 @@ export async function POST(
                 }
             });
 
+            // Associate with Swati's workspace
+            const swatiWs = await tx.workspace.findFirst({ where: { ownerId: swatiUser.id } });
+            const mainWs = await tx.workspace.findFirst({ where: { name: 'Main Workspace' } });
+
+            if (swatiWs) {
+                await tx.workspaceWebsite.upsert({
+                    where: {
+                        workspaceId_crmLeadId: {
+                            workspaceId: swatiWs.id,
+                            crmLeadId: leadId
+                        }
+                    },
+                    update: {},
+                    create: {
+                        workspaceId: swatiWs.id,
+                        crmLeadId: leadId
+                    }
+                });
+
+                await tx.websiteAssignment.create({
+                    data: {
+                        crmLeadId: leadId,
+                        workspaceId: swatiWs.id,
+                        assignedToUserId: swatiUser.id,
+                        status: 'ACTIVE'
+                    }
+                });
+
+                if (mainWs) {
+                    await tx.workspaceShare.upsert({
+                        where: {
+                            sourceWorkspaceId_targetWorkspaceId_crmLeadId: {
+                                sourceWorkspaceId: swatiWs.id,
+                                targetWorkspaceId: mainWs.id,
+                                crmLeadId: leadId
+                            }
+                        },
+                        update: { status: 'ACCEPTED' },
+                        create: {
+                            sourceWorkspaceId: swatiWs.id,
+                            targetWorkspaceId: mainWs.id,
+                            crmLeadId: leadId,
+                            sharedByUserId: swatiUser.id,
+                            status: 'ACCEPTED',
+                            permissions: 'READ'
+                        }
+                    });
+                }
+            }
+
             return updated;
         });
 

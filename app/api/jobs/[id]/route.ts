@@ -63,20 +63,20 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             const cities = uniqueCityNames.length > 0 
                 ? await prisma.city.findMany({ 
                     where: { 
-                        name: { in: uniqueCityNames, mode: 'insensitive' },
+                        name: { in: uniqueCityNames },
                         ...(job.stateId ? { stateId: job.stateId } : {})
                     } 
                   }) 
                 : [];
             const states = uniqueStateNames.length > 0 
-                ? await prisma.state.findMany({ where: { name: { in: uniqueStateNames, mode: 'insensitive' } } }) 
+                ? await prisma.state.findMany({ where: { name: { in: uniqueStateNames } } }) 
                 : [];
             const countries = uniqueCountryNames.length > 0 
                 ? await prisma.country.findMany({ 
                     where: { 
                         OR: [
-                           { name: { in: uniqueCountryNames, mode: 'insensitive' } },
-                           { code: { in: uniqueCountryNames, mode: 'insensitive' } }
+                           { name: { in: uniqueCountryNames } },
+                           { code: { in: uniqueCountryNames } }
                         ] 
                     } 
                   }) 
@@ -162,7 +162,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 if (!resolvedAreaId && cityId && searchAreaName) {
                     const matchedArea = await prisma.area.findFirst({
                         where: {
-                            name: { equals: searchAreaName, mode: 'insensitive' },
+                            name: { equals: searchAreaName },
                             cityId: cityId
                         }
                     });

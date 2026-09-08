@@ -947,7 +947,7 @@ async function importToDatabase(
             // Find a valid city with same name and parent state
             const matchedCity = await prisma.city.findFirst({
                 where: {
-                    name: { equals: oc.name, mode: 'insensitive' },
+                    name: { equals: oc.name },
                     ...(oc.stateId ? { stateId: oc.stateId } : {}),
                     subdistrictId: { not: null }
                 }

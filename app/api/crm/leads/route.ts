@@ -29,7 +29,28 @@ export async function GET(request: Request) {
             isArchived: false
         };
 
-        const { role, username } = getAuthorizedUser(request);
+        const { role, username, workspaceId } = getAuthorizedUser(request);
+        const targetWorkspace = searchParams.get('workspaceId') || workspaceId;
+
+        // If scoped to a specific workspace, fetch workspace-owned leads and accepted shared leads
+        if (targetWorkspace) {
+            const ownedLeadLinks = await prisma.workspaceWebsite.findMany({
+                where: { workspaceId: targetWorkspace },
+                select: { crmLeadId: true }
+            });
+            const sharedLeadLinks = await prisma.workspaceShare.findMany({
+                where: { targetWorkspaceId: targetWorkspace, status: 'ACCEPTED' },
+                select: { crmLeadId: true }
+            });
+
+            const leadIds = Array.from(new Set([
+                ...ownedLeadLinks.map(w => w.crmLeadId),
+                ...sharedLeadLinks.map(s => s.crmLeadId)
+            ]));
+
+            where.id = { in: leadIds };
+        }
+
         if (role === 'SALES_AGENT') {
             where.assignedTo = username;
         } else if (assignedTo) {
@@ -128,6 +149,13 @@ export async function GET(request: Request) {
                 deals: {
                     orderBy: { createdAt: 'desc' },
                     take: 1
+                },
+                workspaceShares: {
+                    include: {
+                        sourceWorkspace: true,
+                        targetWorkspace: true,
+                        sharedByUser: true
+                    }
                 }
             },
             orderBy

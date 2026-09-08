@@ -157,9 +157,9 @@ export async function GET(request: Request) {
                 where: {
                     OR: [
                         { id: parseInt(searchQuery) || -1 },
-                        { business: { business_name: { contains: searchQuery, mode: 'insensitive' } } },
-                        { business: { phone_number: { contains: searchQuery, mode: 'insensitive' } } },
-                        { assignedTo: { contains: searchQuery, mode: 'insensitive' } }
+                        { business: { business_name: { contains: searchQuery } } },
+                        { business: { phone_number: { contains: searchQuery } } },
+                        { assignedTo: { contains: searchQuery } }
                     ]
                 },
                 include: {

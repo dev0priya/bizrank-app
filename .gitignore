@@ -47,3 +47,15 @@ dist/
 # Geographic Data Raw Cache
 data/geographic/raw/
 data/geographic/reports/parse_errors.json
+
+# Cloudflare & OpenNext
+.open-next/
+.wrangler/
+
+# Scratch & Temporary Data Files
+scratch/
+prisma/*.db
+prisma/*.db-journal
+*.sql
+!prisma/d1_workspace_schema.sql
+export.js

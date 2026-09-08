@@ -2,14 +2,16 @@ import { NextResponse } from 'next/server';
 import { prisma } from '../lib/prisma';
 
 export interface AuthorizedUser {
-    role: 'ADMIN' | 'MANAGER' | 'SALES_AGENT' | 'VIEWER';
+    role: string;
     username: string;
+    workspaceId: string;
 }
 
 export function getAuthorizedUser(request: Request): AuthorizedUser {
-    const role = (request.headers.get('x-user-role') || 'ADMIN') as any;
+    const role = (request.headers.get('x-user-role') || 'ADMIN') as string;
     const username = request.headers.get('x-user-username') || 'admin@bizrank.com';
-    return { role, username };
+    const workspaceId = request.headers.get('x-workspace-id') || 'ws-main-01';
+    return { role, username, workspaceId };
 }
 
 export async function checkCRMAuthorization(
@@ -26,20 +28,7 @@ export async function checkCRMAuthorization(
 ): Promise<{ authorized: boolean; errorResponse?: NextResponse }> {
     const { role, username } = getAuthorizedUser(request);
 
-    // 1. ADMIN and MANAGER have all access
-    if (role === 'ADMIN' || role === 'MANAGER') {
-        return { authorized: true };
-    }
-
-    // 2. VIEWER is strictly read-only
-    if (requiredAction === 'write' && role === 'VIEWER') {
-        return {
-            authorized: false,
-            errorResponse: NextResponse.json({ error: 'Forbidden: Read-only access' }, { status: 403 })
-        };
-    }
-
-    // 3. Resolve crmLeadId from options if not explicitly provided
+    // 1. Resolve crmLeadId from options if not explicitly provided
     let crmLeadId = options?.crmLeadId;
     if (!crmLeadId) {
         if (options?.contactId) {
@@ -55,6 +44,51 @@ export async function checkCRMAuthorization(
             const deal = await prisma.deal.findUnique({ where: { id: options.dealId } });
             if (deal) crmLeadId = deal.crmLeadId;
         }
+    }
+
+    // 2. Enforce Workspace Boundary Isolation across ALL roles
+    const { workspaceId } = getAuthorizedUser(request);
+    if (crmLeadId && workspaceId) {
+        const ownedInWorkspace = await prisma.workspaceWebsite.findUnique({
+            where: {
+                workspaceId_crmLeadId: {
+                    workspaceId,
+                    crmLeadId
+                }
+            }
+        });
+
+        const sharedWithWorkspace = await prisma.workspaceShare.findFirst({
+            where: {
+                targetWorkspaceId: workspaceId,
+                crmLeadId,
+                status: 'ACCEPTED'
+            }
+        });
+
+        const isLinkedToAnyWorkspace = await prisma.workspaceWebsite.findFirst({
+            where: { crmLeadId }
+        });
+
+        if (isLinkedToAnyWorkspace && !ownedInWorkspace && !sharedWithWorkspace) {
+            return {
+                authorized: false,
+                errorResponse: NextResponse.json({ error: 'Forbidden: Lead is private to another workspace' }, { status: 403 })
+            };
+        }
+    }
+
+    // 3. ADMIN and MANAGER have full access to workspace resources
+    if (role === 'ADMIN' || role === 'MANAGER') {
+        return { authorized: true };
+    }
+
+    // 4. VIEWER is strictly read-only
+    if (requiredAction === 'write' && role === 'VIEWER') {
+        return {
+            authorized: false,
+            errorResponse: NextResponse.json({ error: 'Forbidden: Read-only access' }, { status: 403 })
+        };
     }
 
     // 4. SALES_AGENT restrictions

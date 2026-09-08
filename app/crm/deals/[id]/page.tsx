@@ -74,7 +74,7 @@ export default async function DealDetailPage({
         <DealDetailClient 
             categories={categories}
             states={states}
-            initialDeal={deal}
+            initialDeal={deal as any}
             initialAuditLogs={auditLogs}
         />
     );

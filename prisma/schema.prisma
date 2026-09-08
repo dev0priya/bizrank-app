@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -383,6 +383,11 @@ model CRMLead {
   deals             Deal[]
   tags              LeadTag[]
 
+  // Workspace & Sharing Relations
+  workspaceWebsites  WorkspaceWebsite[]
+  websiteAssignments WebsiteAssignment[]
+  workspaceShares    WorkspaceShare[]
+
   @@index([pipelineStageId])
   @@index([assignedTo])
   @@index([priority])
@@ -438,33 +443,23 @@ model PipelineStage {
   @@map("crm_pipeline_stages")
 }
 
-enum ActivityType {
-  CALL
-  WHATSAPP
-  EMAIL
-  MEETING
-  DEMO
-  PROPOSAL
-  OTHER
-}
-
 model Activity {
-  id          Int          @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   crmLeadId   Int
-  crmLead     CRMLead      @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  crmLead     CRMLead  @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
   
-  contactId   Int?         @map("contact_id")
-  contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactId   Int?     @map("contact_id")
+  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
-  type        ActivityType
-  outcome     String?      // 'Connected', 'No Answer', 'Busy', etc.
-  summary     String       // Brief title
-  details     String?      // Full description block
-  performedBy String       // Agent name/identifier
-  occurredAt  DateTime     @default(now())
+  type        String   // CALL, WHATSAPP, EMAIL, MEETING, DEMO, PROPOSAL, OTHER
+  outcome     String?  // 'Connected', 'No Answer', 'Busy', etc.
+  summary     String   // Brief title
+  details     String?  // Full description block
+  performedBy String   // Agent name/identifier
+  occurredAt  DateTime @default(now())
   
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([crmLeadId])
   @@index([contactId])
@@ -488,29 +483,23 @@ model CRMNote {
   @@map("crm_notes")
 }
 
-enum FollowUpStatus {
-  PENDING
-  COMPLETED
-  CANCELLED
-}
-
 model FollowUp {
-  id          Int            @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   crmLeadId   Int
-  crmLead     CRMLead        @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  crmLead     CRMLead  @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
   
-  contactId   Int?           @map("contact_id")
-  contact     Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactId   Int?     @map("contact_id")
+  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   assignedTo  String?
   dueAt       DateTime
-  status      FollowUpStatus @default(PENDING)
+  status      String   @default("PENDING") // PENDING, COMPLETED, CANCELLED
   completedAt DateTime?
   outcome     String?
-  reminderAt  DateTime?      @map("reminder_at")
+  reminderAt  DateTime? @map("reminder_at")
   
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([crmLeadId])
   @@index([contactId])
@@ -519,23 +508,17 @@ model FollowUp {
   @@map("crm_follow_ups")
 }
 
-enum DealStatus {
-  OPEN
-  WON
-  LOST
-}
-
 model Deal {
-  id                Int        @id @default(autoincrement())
+  id                Int       @id @default(autoincrement())
   crmLeadId         Int
-  crmLead           CRMLead    @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  crmLead           CRMLead   @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
   
   name              String?
   description       String?
-  value             Float      @default(0.0)
-  currency          String     @default("USD")
+  value             Float     @default(0.0)
+  currency          String    @default("USD")
   expectedCloseDate DateTime?
-  status            DealStatus @default(OPEN)
+  status            String    @default("OPEN") // OPEN, WON, LOST
   wonAt             DateTime?
   lostAt            DateTime?
   lostReason        String?
@@ -620,13 +603,111 @@ model User {
   id        String   @id @default(uuid())
   username  String   @unique
   name      String
+  email     String?  @unique
   role      String   // "DEVELOPER" | "COMMUNICATION" | "ADMIN" | "MANAGER" | "VIEWER"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assignedDeveloperLeads CRMLead[] @relation("DeveloperLeads")
-  assignedSwatiLeads     CRMLead[] @relation("SwatiLeads")
+  assignedDeveloperLeads CRMLead[]           @relation("DeveloperLeads")
+  assignedSwatiLeads     CRMLead[]           @relation("SwatiLeads")
+  ownedWorkspaces        Workspace[]         @relation("WorkspaceOwner")
+  memberships            WorkspaceMember[]
+  assignedWebsites       WebsiteAssignment[] @relation("AssignedToUser")
+  givenAssignments       WebsiteAssignment[] @relation("AssignedByUser")
+  sharesInitiated        WorkspaceShare[]    @relation("SharedByUser")
 
   @@map("users")
+}
+
+model Workspace {
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String
+  owner     User     @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members           WorkspaceMember[]
+  workspaceWebsites WorkspaceWebsite[]
+  assignments       WebsiteAssignment[]
+  sharesSent        WorkspaceShare[]    @relation("SourceWorkspace")
+  sharesReceived    WorkspaceShare[]    @relation("TargetWorkspace")
+
+  @@index([ownerId])
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        String    @default("MEMBER") // "OWNER" | "ADMIN" | "MEMBER" | "DEVELOPER" | "COMMUNICATION"
+  status      String    @default("ACTIVE") // "ACTIVE" | "PENDING" | "INACTIVE"
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+model WorkspaceWebsite {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  crmLeadId   Int
+  crmLead     CRMLead   @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, crmLeadId])
+  @@index([workspaceId])
+  @@index([crmLeadId])
+  @@map("workspace_websites")
+}
+
+model WebsiteAssignment {
+  id               String    @id @default(uuid())
+  crmLeadId        Int
+  crmLead          CRMLead   @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  workspaceId      String
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assignedToUserId String
+  assignedToUser   User      @relation("AssignedToUser", fields: [assignedToUserId], references: [id], onDelete: Cascade)
+  assignedByUserId String?
+  assignedByUser   User?     @relation("AssignedByUser", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+  status           String    @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "UNASSIGNED"
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([crmLeadId])
+  @@index([workspaceId])
+  @@index([assignedToUserId])
+  @@map("website_assignments")
+}
+
+model WorkspaceShare {
+  id                String    @id @default(uuid())
+  sourceWorkspaceId String
+  sourceWorkspace   Workspace @relation("SourceWorkspace", fields: [sourceWorkspaceId], references: [id], onDelete: Cascade)
+  targetWorkspaceId String
+  targetWorkspace   Workspace @relation("TargetWorkspace", fields: [targetWorkspaceId], references: [id], onDelete: Cascade)
+  crmLeadId         Int
+  crmLead           CRMLead   @relation(fields: [crmLeadId], references: [id], onDelete: Cascade)
+  sharedByUserId    String
+  sharedByUser      User      @relation("SharedByUser", fields: [sharedByUserId], references: [id], onDelete: Cascade)
+  status            String    @default("ACCEPTED") // "PENDING" | "ACCEPTED" | "REJECTED" | "REVOKED"
+  permissions       String    @default("READ") // "READ" | "FULL"
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([sourceWorkspaceId, targetWorkspaceId, crmLeadId])
+  @@index([sourceWorkspaceId])
+  @@index([targetWorkspaceId])
+  @@index([crmLeadId])
+  @@map("workspace_shares")
 }

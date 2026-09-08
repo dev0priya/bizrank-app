@@ -76,7 +76,6 @@ export async function GET(request: Request) {
         stateId,
         name: {
           contains: q,
-          mode: 'insensitive',
         },
       },
       orderBy: [

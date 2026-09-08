@@ -4,6 +4,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
 };
 
 module.exports = nextConfig;

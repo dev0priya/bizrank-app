@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../../lib/prisma';
 
-const prisma = new PrismaClient();
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
@@ -16,12 +16,12 @@ export async function GET(request: Request) {
     const businesses = await prisma.business.findMany({
       where: {
         OR: [
-          { business_name: { contains: q, mode: 'insensitive' } },
-          { phone_number: { contains: q, mode: 'insensitive' } },
-          { website: { contains: q, mode: 'insensitive' } },
-          { google_category: { contains: q, mode: 'insensitive' } },
-          { category: { name: { contains: q, mode: 'insensitive' } } },
-          { city: { name: { contains: q, mode: 'insensitive' } } },
+          { business_name: { contains: q } },
+          { phone_number: { contains: q } },
+          { website: { contains: q } },
+          { google_category: { contains: q } },
+          { category: { name: { contains: q } } },
+          { city: { name: { contains: q } } },
         ]
       },
       include: {
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     // Search Jobs
     const jobs = await prisma.collectionJob.findMany({
       where: {
-        query: { contains: q, mode: 'insensitive' }
+        query: { contains: q }
       },
       take: 5
     });

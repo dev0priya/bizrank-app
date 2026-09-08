@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
-import { FollowUpStatus } from '@prisma/client';
+const FollowUpStatus = {
+    PENDING: 'PENDING',
+    COMPLETED: 'COMPLETED',
+    CANCELLED: 'CANCELLED'
+};
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -57,18 +61,18 @@ export async function GET(request: Request) {
                 {
                     crmLead: {
                         business: {
-                            business_name: { contains: query, mode: 'insensitive' }
+                            business_name: { contains: query }
                         }
                     }
                 },
                 {
                     contact: {
-                        name: { contains: query, mode: 'insensitive' }
+                        name: { contains: query }
                     }
                 },
                 {
                     contact: {
-                        phone: { contains: query, mode: 'insensitive' }
+                        phone: { contains: query }
                     }
                 }
             ];

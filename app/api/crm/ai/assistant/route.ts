@@ -114,8 +114,7 @@ I am your deterministic AI CRM Assistant. You can query me using the following n
             where: {
                 business: {
                     business_name: {
-                        contains: query,
-                        mode: 'insensitive'
+                        contains: query
                     }
                 }
             },

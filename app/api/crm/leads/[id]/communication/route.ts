@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../../lib/prisma';
 import { checkCRMAuthorization, getAuthorizedUser } from '../../../../../../services/auth_middleware';
-import { ActivityType } from '@prisma/client';
+
+const ActivityType = {
+    CALL: 'CALL',
+    WHATSAPP: 'WHATSAPP',
+    EMAIL: 'EMAIL',
+    MEETING: 'MEETING',
+    DEMO: 'DEMO',
+    PROPOSAL: 'PROPOSAL',
+    OTHER: 'OTHER'
+};
+
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +53,7 @@ export async function POST(
         }
 
         // Map method to ActivityType enum
-        let activityType: ActivityType = ActivityType.OTHER;
+        let activityType: string = ActivityType.OTHER;
         if (method === 'Call') activityType = ActivityType.CALL;
         else if (method === 'WhatsApp') activityType = ActivityType.WHATSAPP;
         else if (method === 'SMS') activityType = ActivityType.OTHER;

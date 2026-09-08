@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../../lib/prisma';
-import { FollowUpStatus } from '@prisma/client';
+const FollowUpStatus = {
+    PENDING: 'PENDING',
+    COMPLETED: 'COMPLETED',
+    CANCELLED: 'CANCELLED'
+};
 
 export async function POST(
     request: Request,

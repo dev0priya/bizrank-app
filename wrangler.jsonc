@@ -18,5 +18,12 @@
       "binding": "WORKER_SELF_REFERENCE",
       "service": "bizrank-app"
     }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bizrank-db",
+      "database_id": "e5284719-f275-4c74-b6ec-debb7ffdd6d3"
+    }
   ]
 }

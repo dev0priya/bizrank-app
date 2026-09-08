@@ -1,5 +1,9 @@
 import { prisma } from '../lib/prisma';
-import { FollowUpStatus } from '@prisma/client';
+const FollowUpStatus = {
+    PENDING: 'PENDING',
+    COMPLETED: 'COMPLETED',
+    CANCELLED: 'CANCELLED'
+};
 
 async function testFollowUps() {
     console.log('--- STARTING CRM FOLLOW-UPS INTEGRATION TEST ---');

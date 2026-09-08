@@ -19,6 +19,8 @@ export function Topbar() {
 
   const [activeRole, setActiveRole] = useState('ADMIN');
   const [activeUsername, setActiveUsername] = useState('admin@bizrank.com');
+  const [activeWorkspace, setActiveWorkspace] = useState('ws-main-01');
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
 
   useEffect(() => {
     // Override window.fetch once on initial client hydration
@@ -28,6 +30,7 @@ export function Topbar() {
       window.fetch = async function (input, init) {
         const role = localStorage.getItem('bizrank_active_role') || 'ADMIN';
         const username = localStorage.getItem('bizrank_active_username') || 'admin@bizrank.com';
+        const workspaceId = localStorage.getItem('bizrank_active_workspace') || 'ws-main-01';
         
         const newInit = init ? { ...init } : {};
         const headers = new Headers(newInit.headers || {});
@@ -36,6 +39,9 @@ export function Topbar() {
         }
         if (!headers.has('x-user-username')) {
           headers.set('x-user-username', username);
+        }
+        if (!headers.has('x-workspace-id')) {
+          headers.set('x-workspace-id', workspaceId);
         }
         newInit.headers = headers;
         return originalFetch(input, newInit);
@@ -46,28 +52,49 @@ export function Topbar() {
   useEffect(() => {
     const role = localStorage.getItem('bizrank_active_role') || 'ADMIN';
     const username = localStorage.getItem('bizrank_active_username') || 'admin@bizrank.com';
+    const workspaceId = localStorage.getItem('bizrank_active_workspace') || 'ws-main-01';
     setActiveRole(role);
     setActiveUsername(username);
+    setActiveWorkspace(workspaceId);
+
+    // Fetch workspaces list
+    fetch('/api/crm/workspaces')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setWorkspaces(data);
+        }
+      })
+      .catch(err => console.error('Failed to load workspaces:', err));
   }, []);
 
   const handleRoleChange = (role: string) => {
     let username = 'admin@bizrank.com';
     let realRole = role;
+    let targetWs = 'ws-main-01';
 
     if (role === 'MANAGER') username = 'sales.manager@bizrank.com';
     else if (role === 'SALES_AGENT') username = 'sales.agent@bizrank.com';
     else if (role === 'VIEWER') username = 'viewer@bizrank.com';
-    else if (role === 'DEVELOPER_SIMRAN') { username = 'simran@bizrank.com'; realRole = 'DEVELOPER'; }
+    else if (role === 'DEVELOPER_SIMRAN') { username = 'simran@bizrank.com'; realRole = 'DEVELOPER'; targetWs = 'ws-simran-01'; }
     else if (role === 'DEVELOPER_SAKSHI') { username = 'sakshi@bizrank.com'; realRole = 'DEVELOPER'; }
     else if (role === 'DEVELOPER_SUMIT') { username = 'sumit@bizrank.com'; realRole = 'DEVELOPER'; }
-    else if (role === 'COMMUNICATION_SWATI') { username = 'swati@bizrank.com'; realRole = 'COMMUNICATION'; }
+    else if (role === 'COMMUNICATION_SWATI') { username = 'swati@bizrank.com'; realRole = 'COMMUNICATION'; targetWs = 'ws-swati-01'; }
 
     localStorage.setItem('bizrank_active_role', realRole);
     localStorage.setItem('bizrank_active_username', username);
     localStorage.setItem('bizrank_display_role', role); // save selection for dropdown state display
+    localStorage.setItem('bizrank_active_workspace', targetWs);
     setActiveRole(role);
     setActiveUsername(username);
+    setActiveWorkspace(targetWs);
     
+    window.location.reload();
+  };
+
+  const handleWorkspaceChange = (wsId: string) => {
+    localStorage.setItem('bizrank_active_workspace', wsId);
+    setActiveWorkspace(wsId);
     window.location.reload();
   };
 
@@ -139,6 +166,39 @@ export function Topbar() {
         <Link href="/discovery" className="btn-primary" title="Quick add: start a new business discovery" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '8px 10px', fontSize: '13px' }}>
           <Plus size={16} /> <span className="quick-add-label">Quick Add</span>
         </Link>
+        {/* Workspace Selector dropdown */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>Workspace:</span>
+          <select 
+            value={activeWorkspace} 
+            onChange={e => handleWorkspaceChange(e.target.value)}
+            style={{ 
+              background: 'rgba(255,255,255,0.05)', 
+              color: 'var(--text-main)', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '6px', 
+              padding: '4px 8px', 
+              fontSize: '12px',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            {workspaces.length > 0 ? (
+              workspaces.map(ws => (
+                <option key={ws.id} value={ws.id} style={{ background: '#1e293b' }}>
+                  {ws.name}
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="ws-main-01" style={{ background: '#1e293b' }}>Main Workspace</option>
+                <option value="ws-swati-01" style={{ background: '#1e293b' }}>Swati Chaudhary Workspace</option>
+                <option value="ws-simran-01" style={{ background: '#1e293b' }}>Simran Kaur Workspace</option>
+              </>
+            )}
+          </select>
+        </div>
+
         {/* Role Selector dropdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>Active Role:</span>

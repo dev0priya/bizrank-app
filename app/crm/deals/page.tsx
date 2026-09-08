@@ -141,7 +141,7 @@ export default async function CRMDealsPage({
             <DealsClient 
                 categories={categories}
                 states={states}
-                deals={deals}
+                deals={deals as any}
                 metrics={{
                     wonRevenue,
                     wonCount,

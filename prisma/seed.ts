@@ -735,7 +735,6 @@ async function main() {
   for (let i = 0; i < searchLocationsToInsert.length; i += CHUNK) {
     await prisma.searchLocation.createMany({
       data: searchLocationsToInsert.slice(i, i + CHUNK),
-      skipDuplicates: true,
     });
   }
   totalSearchLocations = searchLocationsToInsert.length;

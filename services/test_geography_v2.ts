@@ -149,7 +149,7 @@ async function testGeographyV2() {
   const rohinSearchInDelhi = await prisma.searchLocation.findMany({
     where: {
       stateId: delhiState!.id,
-      name: { contains: 'Rohini', mode: 'insensitive' },
+      name: { contains: 'Rohini' },
     }
   });
   assert(rohinSearchInDelhi.length > 0, 'Rohini found in Delhi SearchLocation scope');
@@ -158,7 +158,7 @@ async function testGeographyV2() {
   const rohinSearchInHaryana = await prisma.searchLocation.findMany({
     where: {
       stateId: haryanaState!.id,
-      name: { equals: 'Rohini', mode: 'insensitive' },
+      name: { equals: 'Rohini' },
     }
   });
   assert(rohinSearchInHaryana.length === 0, 'Rohini NOT found in Haryana SearchLocation scope (cross-state isolation)');
@@ -167,7 +167,7 @@ async function testGeographyV2() {
   const gurugramSearch = await prisma.searchLocation.findMany({
     where: {
       stateId: haryanaState!.id,
-      name: { contains: 'Gurugram', mode: 'insensitive' },
+      name: { contains: 'Gurugram' },
     }
   });
   assert(gurugramSearch.length > 0, 'Gurugram found in Haryana SearchLocation scope');

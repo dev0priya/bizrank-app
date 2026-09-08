@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../../lib/prisma';
-import { ActivityType } from '@prisma/client';
+
+const ActivityType = {
+    CALL: 'CALL',
+    WHATSAPP: 'WHATSAPP',
+    EMAIL: 'EMAIL',
+    MEETING: 'MEETING',
+    DEMO: 'DEMO',
+    PROPOSAL: 'PROPOSAL',
+    OTHER: 'OTHER'
+};
+
 
 export async function GET(
     request: Request,
@@ -69,7 +79,7 @@ export async function POST(
                 data: {
                     crmLeadId: leadId,
                     contactId: contactId ? parseInt(contactId) : null,
-                    type: type as ActivityType,
+                    type: type as any,
                     summary: summary.trim(),
                     details: details || null,
                     outcome: outcome || null,

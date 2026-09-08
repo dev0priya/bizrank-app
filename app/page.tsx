@@ -2,6 +2,8 @@ import { prisma } from '../lib/prisma';
 import DashboardClient from './DashboardClient';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 export default async function DashboardPage() {
   try {
@@ -50,11 +52,11 @@ export default async function DashboardPage() {
     
     // Businesses Collected (Last 30 Days)
     const last30DaysData = await prisma.$queryRaw`
-      SELECT DATE(collection_date) as date, COUNT(*)::int as count 
+      SELECT strftime('%Y-%m-%d', collection_date) as date, COUNT(*) as count 
       FROM businesses 
       WHERE collection_date >= ${thirtyDaysAgo} 
-      GROUP BY DATE(collection_date) 
-      ORDER BY DATE(collection_date) ASC
+      GROUP BY date 
+      ORDER BY date ASC
     `;
 
     // Top Categories
@@ -139,8 +141,9 @@ export default async function DashboardPage() {
         <h2 style={{ color: '#ef4444', marginBottom: '16px' }}>
           Database Connection Offline
         </h2>
-        <p style={{ color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '24px' }}>
-          BizRank was unable to reach the cloud database server. If the Neon server was inactive, it may be waking up from sleep mode. This process completes automatically in about 5 to 10 seconds.
+        <p style={{ color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '24px', whiteSpace: 'pre-wrap', textAlign: 'left', fontSize: '12px' }}>
+          Error: {error?.message || String(error)}
+          {'\n\n'}{error?.stack}
         </p>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <a 
