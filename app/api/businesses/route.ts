@@ -128,6 +128,10 @@ export async function GET(request: Request) {
     });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({
+      data: [],
+      error: error.message,
+      pagination: { total: 0, page: 1, limit: 20, totalPages: 0 }
+    }, { status: 500 });
   }
 }

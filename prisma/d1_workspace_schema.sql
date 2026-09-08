@@ -83,14 +83,16 @@ VALUES
   ('usr-admin-01', 'admin@bizrank.com', 'Admin User', 'admin@bizrank.com', 'ADMIN', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('usr-swati-01', 'swati@bizrank.com', 'Swati Chaudhary', 'swati@bizrank.com', 'COMMUNICATION', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('usr-simran-01', 'simran@bizrank.com', 'Simran Kaur', 'simran@bizrank.com', 'DEVELOPER', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('usr-sakshi-01', 'sakshi@bizrank.com', 'Sakshi Sharma', 'sakshi@bizrank.com', 'DEVELOPER', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  ('usr-sakshi-01', 'sakshi@bizrank.com', 'Sakshi Sharma', 'sakshi@bizrank.com', 'DEVELOPER', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('usr-sumit-01', 'sumit@bizrank.com', 'Sumit Thakur', 'sumit@bizrank.com', 'DEVELOPER', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 4. Seed Core Workspaces
 INSERT OR REPLACE INTO "workspaces" ("id", "name", "ownerId", "createdAt", "updatedAt")
 VALUES
   ('ws-main-01', 'Main Workspace', 'usr-admin-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('ws-swati-01', 'Swati Chaudhary Workspace', 'usr-swati-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('ws-simran-01', 'Simran Kaur Workspace', 'usr-simran-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  ('ws-simran-01', 'Simran Kaur Workspace', 'usr-simran-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('ws-sumit-01', 'Sumit Thakur Workspace', 'usr-sumit-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 5. Seed Workspace Memberships
 INSERT OR REPLACE INTO "workspace_members" ("id", "workspaceId", "userId", "role", "status", "createdAt", "updatedAt")
@@ -98,8 +100,10 @@ VALUES
   ('wm-main-admin', 'ws-main-01', 'usr-admin-01', 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('wm-main-swati', 'ws-main-01', 'usr-swati-01', 'MEMBER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('wm-main-simran', 'ws-main-01', 'usr-simran-01', 'MEMBER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('wm-main-sumit', 'ws-main-01', 'usr-sumit-01', 'MEMBER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('wm-swati-owner', 'ws-swati-01', 'usr-swati-01', 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('wm-simran-owner', 'ws-simran-01', 'usr-simran-01', 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  ('wm-simran-owner', 'ws-simran-01', 'usr-simran-01', 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('wm-sumit-owner', 'ws-sumit-01', 'usr-sumit-01', 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 6. Seed SHARED Website (ID 999 - Shared with Main Workspace)
 INSERT OR IGNORE INTO "businesses" ("id", "provider", "business_name", "full_address", "phone_number", "website", "website_exists", "website_status", "collection_date")

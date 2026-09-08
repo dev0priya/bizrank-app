@@ -288,6 +288,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                             }
                         });
                     }
+                } else {
+                    await prisma.business.create({ data });
                 }
             }
 

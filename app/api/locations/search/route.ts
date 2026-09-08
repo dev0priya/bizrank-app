@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     if (!q) {
       if (stateId) {
         const state = await prisma.state.findUnique({ where: { id: stateId } });
-        if (!state) return NextResponse.json({ error: 'State not found' }, { status: 404 });
+        if (!state) return NextResponse.json({ data: [], error: 'State not found' }, { status: 404 });
         const topLocations = await prisma.searchLocation.findMany({
           where: { stateId },
           orderBy: [
@@ -60,13 +60,13 @@ export async function GET(request: Request) {
 
     // Require stateId for geographic scoping
     if (!stateId) {
-      return NextResponse.json({ error: 'stateId is required for location search' }, { status: 400 });
+      return NextResponse.json({ data: [], error: 'stateId is required for location search' }, { status: 400 });
     }
 
     // Verify state exists
     const state = await prisma.state.findUnique({ where: { id: stateId } });
     if (!state) {
-      return NextResponse.json({ error: 'State not found' }, { status: 404 });
+      return NextResponse.json({ data: [], error: 'State not found' }, { status: 404 });
     }
 
     // Search SearchLocation table scoped to the selected state
@@ -117,6 +117,6 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     console.error('[/api/locations/search] Error:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ data: [], error: error.message }, { status: 500 });
   }
 }

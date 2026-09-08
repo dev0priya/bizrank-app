@@ -194,6 +194,7 @@ export function Topbar() {
                 <option value="ws-main-01" style={{ background: '#1e293b' }}>Main Workspace</option>
                 <option value="ws-swati-01" style={{ background: '#1e293b' }}>Swati Chaudhary Workspace</option>
                 <option value="ws-simran-01" style={{ background: '#1e293b' }}>Simran Kaur Workspace</option>
+                <option value="ws-sumit-01" style={{ background: '#1e293b' }}>Sumit Thakur Workspace</option>
               </>
             )}
           </select>
