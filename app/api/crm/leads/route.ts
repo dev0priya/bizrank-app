@@ -85,16 +85,16 @@ export async function GET(request: Request) {
         // Search criteria
         if (search) {
             where.OR = [
-                { business: { business_name: { contains: search, mode: 'insensitive' } } },
-                { business: { phone_number: { contains: search, mode: 'insensitive' } } },
-                { business: { email: { contains: search, mode: 'insensitive' } } },
-                { business: { google_category: { contains: search, mode: 'insensitive' } } },
-                { business: { category: { name: { contains: search, mode: 'insensitive' } } } },
-                { business: { city: { name: { contains: search, mode: 'insensitive' } } } },
-                { business: { area: { name: { contains: search, mode: 'insensitive' } } } },
-                { contacts: { some: { name: { contains: search, mode: 'insensitive' } } } },
-                { contacts: { some: { phone: { contains: search, mode: 'insensitive' } } } },
-                { contacts: { some: { email: { contains: search, mode: 'insensitive' } } } }
+                { business: { business_name: { contains: search } } },
+                { business: { phone_number: { contains: search } } },
+                { business: { email: { contains: search } } },
+                { business: { google_category: { contains: search } } },
+                { business: { category: { name: { contains: search } } } },
+                { business: { city: { name: { contains: search } } } },
+                { business: { area: { name: { contains: search } } } },
+                { contacts: { some: { name: { contains: search } } } },
+                { contacts: { some: { phone: { contains: search } } } },
+                { contacts: { some: { email: { contains: search } } } }
             ];
         }
 
@@ -222,15 +222,18 @@ export async function POST(request: Request) {
         if (!existingLead) {
             // Check for other duplicate business records in the database that are already in the CRM
             const duplicateConditions: any[] = [];
-            if (business.place_id) {
-                duplicateConditions.push({ place_id: business.place_id });
+            const trimmedPlaceId = business.place_id?.trim();
+            if (trimmedPlaceId) {
+                duplicateConditions.push({ place_id: trimmedPlaceId });
             }
-            if (business.phone_number && business.phone_number.trim()) {
-                duplicateConditions.push({ phone_number: business.phone_number });
+            const trimmedPhone = business.phone_number?.trim();
+            if (trimmedPhone) {
+                duplicateConditions.push({ phone_number: trimmedPhone });
             }
-            if (business.business_name && business.city_id) {
+            const trimmedName = business.business_name?.trim();
+            if (trimmedName && business.city_id) {
                 duplicateConditions.push({
-                    business_name: { equals: business.business_name, mode: 'insensitive' },
+                    business_name: trimmedName,
                     city_id: business.city_id
                 });
             }
@@ -252,8 +255,22 @@ export async function POST(request: Request) {
         }
 
         if (existingLead) {
+            // Keep current business discovery/crm status synced even if using duplicate lead
+            await prisma.business.update({
+                where: { id: parseInt(businessId) },
+                data: {
+                    discovery_status: 'CRM',
+                    crm_status: 'Lead'
+                }
+            }).catch(() => {});
+
             // Return existing lead id (Duplicate Protection criteria)
-            return NextResponse.json({ success: true, leadId: existingLead.id, message: 'Lead already promoted' });
+            return NextResponse.json({ 
+                success: true, 
+                leadId: existingLead.id, 
+                assignedTo: existingLead.assignedTo || null,
+                message: 'Lead already promoted' 
+            });
         }
 
         // Get 'New' stage
@@ -327,7 +344,11 @@ export async function POST(request: Request) {
             });
         }
 
-        return NextResponse.json({ success: true, leadId: newLead.id }, { status: 201 });
+        return NextResponse.json({ 
+            success: true, 
+            leadId: newLead.id,
+            assignedTo: newLead.assignedTo || null
+        }, { status: 201 });
     } catch (error: any) {
         console.error('Failed to promote CRM lead:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

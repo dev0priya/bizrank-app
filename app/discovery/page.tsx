@@ -167,6 +167,7 @@ export default function BusinessDiscoveryPage() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
   const [viewingBusiness, setViewingBusiness] = useState<BusinessResult | null>(null);
+  const [addingToCrmId, setAddingToCrmId] = useState<number | null>(null);
 
   // Job state
   const [jobId, setJobId] = useState<number | null>(null);
@@ -516,6 +517,7 @@ export default function BusinessDiscoveryPage() {
   };
 
   const handleAddToCRM = async (businessId: number) => {
+    setAddingToCrmId(businessId);
     try {
       const res = await fetch('/api/crm/leads', {
         method: 'POST',
@@ -525,13 +527,32 @@ export default function BusinessDiscoveryPage() {
       const data = await res.json();
       if (res.ok) {
         setBusinesses(prev => prev.map(b =>
-          b.id === businessId ? { ...b, discovery_status: 'Qualified', crm_lead: { id: data.leadId, assignedTo: null } } : b
+          b.id === businessId
+            ? {
+                ...b,
+                discovery_status: 'Qualified',
+                crm_lead: { id: data.leadId, assignedTo: data.assignedTo ?? b.crm_lead?.assignedTo ?? null }
+              }
+            : b
         ));
+        setViewingBusiness(prev =>
+          prev && prev.id === businessId
+            ? {
+                ...prev,
+                discovery_status: 'Qualified',
+                crm_lead: { id: data.leadId, assignedTo: data.assignedTo ?? prev.crm_lead?.assignedTo ?? null }
+              }
+            : prev
+        );
       } else {
-        alert(`CRM Error: ${data.error}`);
+        const errorMsg = data.error || 'Failed to add business to CRM.';
+        alert(`CRM Error: ${errorMsg}`);
       }
     } catch (e) {
-      console.error(e);
+      console.error('Failed to add to CRM:', e);
+      alert('Unable to connect to CRM service. Please try again.');
+    } finally {
+      setAddingToCrmId(null);
     }
   };
 
@@ -569,6 +590,11 @@ export default function BusinessDiscoveryPage() {
             ? { ...b, crm_lead: { ...b.crm_lead!, assignedTo: selectedAssignee } }
             : b
         ));
+        setViewingBusiness(prev =>
+          prev && prev.id === assigningBusiness.id
+            ? { ...prev, crm_lead: { ...prev.crm_lead!, assignedTo: selectedAssignee } }
+            : prev
+        );
         setShowAssignModal(false);
       } else {
         setAssignError(data.error || 'Unable to assign this lead. Please try again.');
@@ -595,18 +621,21 @@ export default function BusinessDiscoveryPage() {
         const updatedBiz = { 
           ...assigningBusiness, 
           discovery_status: 'Qualified', 
-          crm_lead: { id: data.leadId, assignedTo: null } 
+          crm_lead: { id: data.leadId, assignedTo: data.assignedTo ?? assigningBusiness.crm_lead?.assignedTo ?? null } 
         };
         setBusinesses(prev => prev.map(b => b.id === assigningBusiness.id ? updatedBiz : b));
         setAssigningBusiness(updatedBiz);
+        setViewingBusiness(prev => prev && prev.id === assigningBusiness.id ? updatedBiz : prev);
         setShowCrmPromptModal(false);
-        setSelectedAssignee('');
+        setSelectedAssignee(data.assignedTo || '');
         setShowAssignModal(true);
       } else {
-        alert(`CRM Error: ${data.error}`);
+        const errorMsg = data.error || 'Failed to add business to CRM.';
+        alert(`CRM Error: ${errorMsg}`);
       }
     } catch (e) {
       console.error(e);
+      alert('Unable to connect to CRM service. Please try again.');
     } finally {
       setAssignLoading(false);
     }
@@ -1144,13 +1173,21 @@ export default function BusinessDiscoveryPage() {
                         <>
                           <button
                             onClick={() => handleAddToCRM(biz.id)}
+                            disabled={addingToCrmId === biz.id}
                             style={{
                               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                               padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                              background: '#2563eb', color: '#ffffff', border: 'none', cursor: 'pointer'
+                              background: '#2563eb', color: '#ffffff', border: 'none',
+                              cursor: addingToCrmId === biz.id ? 'not-allowed' : 'pointer',
+                              opacity: addingToCrmId === biz.id ? 0.75 : 1
                             }}
                           >
-                            <Plus size={14} /> Add to CRM
+                            {addingToCrmId === biz.id ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Plus size={14} />
+                            )}
+                            {addingToCrmId === biz.id ? 'Adding...' : 'Add to CRM'}
                           </button>
                           <button
                             onClick={() => handleAssignClick(biz)}
@@ -1586,13 +1623,21 @@ export default function BusinessDiscoveryPage() {
                   onClick={() => {
                     handleAddToCRM(viewingBusiness.id);
                   }}
+                  disabled={addingToCrmId === viewingBusiness.id}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px',
                     borderRadius: '10px', fontSize: '13px', fontWeight: 700, background: '#2563eb',
-                    color: '#ffffff', border: 'none', cursor: 'pointer'
+                    color: '#ffffff', border: 'none',
+                    cursor: addingToCrmId === viewingBusiness.id ? 'not-allowed' : 'pointer',
+                    opacity: addingToCrmId === viewingBusiness.id ? 0.75 : 1
                   }}
                 >
-                  <Plus size={15} /> Add to CRM
+                  {addingToCrmId === viewingBusiness.id ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Plus size={15} />
+                  )}
+                  {addingToCrmId === viewingBusiness.id ? 'Adding to CRM...' : 'Add to CRM'}
                 </button>
               ) : (
                 <Link

@@ -81,9 +81,9 @@ export default async function CRMDealsPage({
 
     if (search) {
         where.OR = [
-            { name: { contains: search, mode: 'insensitive' } },
-            { crmLead: { business: { business_name: { contains: search, mode: 'insensitive' } } } },
-            { crmLead: { contacts: { some: { name: { contains: search, mode: 'insensitive' } } } } }
+            { name: { contains: search } },
+            { crmLead: { business: { business_name: { contains: search } } } },
+            { crmLead: { contacts: { some: { name: { contains: search } } } } }
         ];
     }
 

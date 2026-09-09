@@ -42,12 +42,12 @@ export default async function PipelinePage({
     const where: any = {};
     if (search) {
         where.OR = [
-            { business: { business_name: { contains: search, mode: 'insensitive' } } },
-            { business: { phone_number: { contains: search, mode: 'insensitive' } } },
-            { business: { google_category: { contains: search, mode: 'insensitive' } } },
-            { business: { category: { name: { contains: search, mode: 'insensitive' } } } },
-            { business: { city: { name: { contains: search, mode: 'insensitive' } } } },
-            { contacts: { some: { name: { contains: search, mode: 'insensitive' } } } }
+            { business: { business_name: { contains: search } } },
+            { business: { phone_number: { contains: search } } },
+            { business: { google_category: { contains: search } } },
+            { business: { category: { name: { contains: search } } } },
+            { business: { city: { name: { contains: search } } } },
+            { contacts: { some: { name: { contains: search } } } }
         ];
     }
 
