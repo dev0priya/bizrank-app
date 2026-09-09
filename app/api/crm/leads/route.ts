@@ -147,10 +147,15 @@ export async function GET(request: Request) {
                 },
                 pipelineStage: true,
                 developer: true,
+                swati: true,
+                contacts: {
+                    orderBy: { isPrimary: 'desc' }
+                },
+                activities: {
+                    orderBy: { occurredAt: 'desc' }
+                },
                 followUps: {
-                    where: { status: 'PENDING' },
-                    orderBy: { dueAt: 'asc' },
-                    take: 1
+                    orderBy: { dueAt: 'asc' }
                 },
                 deals: {
                     orderBy: { createdAt: 'desc' },

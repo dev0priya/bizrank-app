@@ -53,6 +53,11 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
         }
     }, []);
 
+    // Refresh data whenever selected user changes
+    useEffect(() => {
+        fetchLatestData();
+    }, [selectedUserId]);
+
     const handleSelectUser = (userId: string | null) => {
         setSelectedUserId(userId);
         if (typeof window !== 'undefined') {
@@ -78,25 +83,48 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
 
     const fetchLatestData = async () => {
         try {
-            const headers = getHeaders();
-            const res = await fetch('/api/crm/leads', { headers, cache: 'no-store' });
+            const res = await fetch('/api/crm/leads?limit=100', { cache: 'no-store' });
             const result = await res.json();
             const data = result.data || result;
             if (Array.isArray(data)) {
                 // Fetch user data as well
-                const userRes = await fetch('/api/crm/users', { headers, cache: 'no-store' });
+                const userRes = await fetch('/api/crm/users', { cache: 'no-store' });
                 if (userRes.ok) {
                     const uData = await userRes.json();
                     setUsers(uData);
                 }
-                
-                // Fetch full leads details with contacts and business details
-                const leadsRes = await Promise.all(data.map(l => fetch(`/api/crm/leads/${l.id}`, { headers, cache: 'no-store' }).then(r => r.json())));
-                setLeads(leadsRes);
+                setLeads(data);
             }
         } catch (e) {
             console.error('Failed to reload data:', e);
         }
+    };
+
+    // Predicate determining if a lead is a fresh/unprocessed handoff waiting for Swati
+    const isNewHandoffLead = (lead: any, swatiUserId?: string) => {
+        if (!lead || lead.isArchived) return false;
+        if (swatiUserId && lead.swatiId !== swatiUserId) return false;
+        if (lead.handoffStatus !== 'HANDED_OVER') return false;
+
+        // If client status is already marked as Interested, Not Interested, No Response, or Closed, it has been processed
+        if (['Interested', 'Not Interested', 'No Response', 'Closed'].includes(lead.clientStatus)) {
+            return false;
+        }
+
+        // If there is any pending follow-up scheduled, it is in the follow-ups/calls pipeline
+        if (lead.followUps && lead.followUps.some((f: any) => f.status === 'PENDING')) {
+            return false;
+        }
+
+        // If Swati has logged any communication activity (Call, WhatsApp, Email, Meeting, etc.)
+        if (lead.activities && lead.activities.some((a: any) =>
+            a.type === 'CALL' || a.type === 'WHATSAPP' || a.type === 'EMAIL' ||
+            (a.summary && a.summary.toLowerCase().includes('communication'))
+        )) {
+            return false;
+        }
+
+        return true;
     };
 
     // Calculate current work counts dynamically from real database records (excluding archived)
@@ -104,7 +132,7 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
         if (user.role === 'DEVELOPER') {
             return leads.filter(l => l.developerId === user.id && !l.isArchived).length;
         } else if (user.role === 'COMMUNICATION') {
-            return leads.filter(l => l.swatiId === user.id && l.handoffStatus === 'HANDED_OVER' && !l.isArchived).length;
+            return leads.filter(l => isNewHandoffLead(l, user.id)).length;
         }
         return 0;
     };
@@ -524,7 +552,7 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
             // ==========================================
             
             // Calculate Swati Counts dynamically from real database records
-            const newHandoffs = userLeads.filter(l => l.clientStatus === 'New' || (l.activities && l.activities.length === 0));
+            const newHandoffs = userLeads.filter(l => isNewHandoffLead(l, selectedUser.id));
             const activeFollowups = userLeads.filter(l => l.followUps && l.followUps.some((f: any) => f.status === 'PENDING'));
             
             const todaysCallsLeads = activeFollowups.filter(l => l.followUps.some((f: any) => f.status === 'PENDING' && isToday(f.dueAt)));
@@ -586,8 +614,8 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
                             <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--accent-primary)', marginTop: '4px' }}>{todaysCallsLeads.length}</div>
                         </div>
                         <div className="glass-panel" style={{ padding: '14px', textAlign: 'center', cursor: 'pointer', border: swatiTab === 'followups' ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)' }} onClick={() => setSwatiTab('followups')}>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>Today's Follow-ups</div>
-                            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b', marginTop: '4px' }}>{todaysCallsLeads.length}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>All Follow-ups</div>
+                            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b', marginTop: '4px' }}>{activeFollowups.length}</div>
                         </div>
                         <div className="glass-panel" style={{ padding: '14px', textAlign: 'center', cursor: 'pointer', border: swatiTab === 'interested' ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)' }} onClick={() => setSwatiTab('interested')}>
                             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>Interested</div>
@@ -601,13 +629,13 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
 
                     {/* Navigation Tabs */}
                     <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', marginBottom: '20px', overflowX: 'auto', paddingBottom: '8px' }}>
-                        <button onClick={() => setSwatiTab('handoffs')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'handoffs' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'handoffs' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>New Handoffs</button>
-                        <button onClick={() => setSwatiTab('calls')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'calls' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'calls' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>Today's Calls</button>
-                        <button onClick={() => setSwatiTab('followups')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'followups' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'followups' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>Follow-ups</button>
-                        <button onClick={() => setSwatiTab('interested')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'interested' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'interested' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>Interested</button>
-                        <button onClick={() => setSwatiTab('no_response')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'no_response' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'no_response' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>No Response</button>
-                        <button onClick={() => setSwatiTab('nurture')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'nurture' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'nurture' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>Not Interested / Nurture</button>
-                        <button onClick={() => setSwatiTab('closed')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'closed' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'closed' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>Closed</button>
+                        <button onClick={() => setSwatiTab('handoffs')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'handoffs' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'handoffs' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>New Handoffs ({newHandoffs.length})</button>
+                        <button onClick={() => setSwatiTab('calls')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'calls' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'calls' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>Today's Calls ({todaysCallsLeads.length})</button>
+                        <button onClick={() => setSwatiTab('followups')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'followups' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'followups' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>Follow-ups ({activeFollowups.length})</button>
+                        <button onClick={() => setSwatiTab('interested')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'interested' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'interested' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>Interested ({interestedLeads.length})</button>
+                        <button onClick={() => setSwatiTab('no_response')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'no_response' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'no_response' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>No Response ({noResponseLeads.length})</button>
+                        <button onClick={() => setSwatiTab('nurture')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'nurture' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'nurture' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>Not Interested / Nurture ({notInterestedLeads.length})</button>
+                        <button onClick={() => setSwatiTab('closed')} style={{ padding: '6px 12px', border: 'none', background: swatiTab === 'closed' ? 'rgba(255,255,255,0.08)' : 'transparent', color: swatiTab === 'closed' ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', fontSize: '13px', fontWeight: 500 }}>Closed ({closedLeads.length})</button>
                     </div>
 
                     {/* Calls specific banner */}
@@ -677,14 +705,14 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
                                     {swatiTab === 'closed' && 'No closed clients.'}
                                 </div>
                             ) : (
-                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '950px' }}>
                                     <thead>
                                         <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', fontSize: '12px' }}>
-                                            <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Business Name</th>
-                                            <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Client Phone</th>
-                                            <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Website URL</th>
-                                            <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Developer Name</th>
-                                            <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Handoff Date</th>
+                                            <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Business details</th>
+                                            <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Primary Contact & Phone</th>
+                                            <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Website URL & Status</th>
+                                            <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Developer</th>
+                                            <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Handoff Date/Time</th>
                                             {swatiTab === 'calls' && <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Follow-up Time</th>}
                                             <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Current Status</th>
                                             <th style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-muted)', textAlign: 'right' }}>Actions</th>
@@ -695,34 +723,63 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
                                             const primaryContact = lead.contacts?.find((c: any) => c.isPrimary) || lead.contacts?.[0];
                                             const clientPhone = lead.business?.phone_number || primaryContact?.phone || 'No phone available';
                                             const activeFollowup = lead.followUps?.find((f: any) => f.status === 'PENDING');
+                                            const category = lead.business?.category?.displayName || lead.business?.category?.name || lead.business?.google_category || 'Business';
+                                            const location = [lead.business?.area?.name, lead.business?.city?.name, lead.business?.state?.name].filter(Boolean).join(', ') || 'Location N/A';
+                                            const websiteUrl = lead.websiteUrl || lead.business?.website;
+                                            const websiteStatus = lead.websiteStatus || 'COMPLETED';
 
                                             return (
                                                 <tr key={lead.id} style={{ borderBottom: idx === tabLeads.length - 1 ? 'none' : '1px solid var(--border-color)', fontSize: '13px' }}>
-                                                    <td style={{ padding: '14px 18px', fontWeight: 600, color: 'var(--text-main)' }}>
-                                                        {lead.business?.business_name || 'Unnamed Business'}
+                                                    <td style={{ padding: '14px 18px' }}>
+                                                        <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                                                            {lead.business?.business_name || 'Unnamed Business'}
+                                                        </div>
+                                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                                                            <span style={{ color: 'var(--accent-primary)' }}>{category}</span> • <span>{location}</span>
+                                                        </div>
                                                     </td>
                                                     <td style={{ padding: '14px 18px' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                                                            <Phone size={13} style={{ color: 'var(--text-muted)' }} />
+                                                        <div style={{ fontWeight: 500, color: 'var(--text-main)', fontSize: '12px' }}>
+                                                            {primaryContact?.name || 'Primary Contact'}
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', marginTop: '3px', fontSize: '12px' }}>
+                                                            <Phone size={12} />
                                                             <span>{clientPhone}</span>
                                                         </div>
                                                     </td>
                                                     <td style={{ padding: '14px 18px' }}>
-                                                        {lead.websiteUrl ? (
-                                                            <a href={lead.websiteUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 500 }}>
+                                                        {websiteUrl ? (
+                                                            <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 500 }}>
                                                                 <Globe size={13} />
-                                                                <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '180px' }}>{lead.websiteUrl}</span>
+                                                                <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '160px' }}>{websiteUrl}</span>
                                                                 <ExternalLink size={11} />
                                                             </a>
                                                         ) : (
                                                             <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic' }}>Website link not set</span>
                                                         )}
+                                                        <div style={{ marginTop: '4px' }}>
+                                                            <span style={{
+                                                                padding: '2px 7px',
+                                                                borderRadius: '10px',
+                                                                fontSize: '10px',
+                                                                fontWeight: 600,
+                                                                background: websiteStatus === 'COMPLETED' ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)',
+                                                                color: websiteStatus === 'COMPLETED' ? '#10b981' : 'var(--accent-primary)'
+                                                            }}>
+                                                                {websiteStatus}
+                                                            </span>
+                                                        </div>
                                                     </td>
-                                                    <td style={{ padding: '14px 18px', color: 'var(--text-muted)' }}>
+                                                    <td style={{ padding: '14px 18px', color: 'var(--text-main)', fontWeight: 500 }}>
                                                         {lead.developer?.name || 'Unknown'}
                                                     </td>
                                                     <td style={{ padding: '14px 18px', color: 'var(--text-muted)' }}>
-                                                        {lead.handoffDate ? new Date(lead.handoffDate).toLocaleDateString() : 'N/A'}
+                                                        {lead.handoffDate ? (
+                                                            <div>
+                                                                <div>{new Date(lead.handoffDate).toLocaleDateString()}</div>
+                                                                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{new Date(lead.handoffDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                                            </div>
+                                                        ) : 'N/A'}
                                                     </td>
                                                     {swatiTab === 'calls' && (
                                                         <td style={{ padding: '14px 18px', color: '#f59e0b', fontWeight: 500 }}>
@@ -735,8 +792,8 @@ export default function TeamClient({ initialUsers, initialLeads }: TeamClientPro
                                                             borderRadius: '12px',
                                                             fontSize: '11px',
                                                             fontWeight: 600,
-                                                            background: lead.clientStatus === 'Interested' ? 'rgba(16,185,129,0.15)' : lead.clientStatus === 'Not Interested' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)',
-                                                            color: lead.clientStatus === 'Interested' ? '#10b981' : lead.clientStatus === 'Not Interested' ? 'var(--status-lost)' : '#f59e0b'
+                                                            background: lead.clientStatus === 'Interested' ? 'rgba(16,185,129,0.15)' : lead.clientStatus === 'Not Interested' ? 'rgba(239,68,68,0.15)' : lead.clientStatus === 'New' ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)',
+                                                            color: lead.clientStatus === 'Interested' ? '#10b981' : lead.clientStatus === 'Not Interested' ? 'var(--status-lost)' : lead.clientStatus === 'New' ? 'var(--accent-primary)' : '#f59e0b'
                                                         }}>
                                                             {lead.clientStatus}
                                                         </span>
@@ -1234,11 +1291,12 @@ interface FollowUpsTableProps {
 
 function FollowUpsTable({ leads, onOpen, isOverdue = false }: FollowUpsTableProps) {
     return (
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '950px' }}>
             <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.01)', fontSize: '12px' }}>
-                    <th style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Business Name</th>
-                    <th style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Phone</th>
+                    <th style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Business details</th>
+                    <th style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Primary Contact & Phone</th>
+                    <th style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Website URL</th>
                     <th style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Follow-up Date</th>
                     <th style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Follow-up Time</th>
                     <th style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--text-muted)' }}>Current Status</th>
@@ -1250,15 +1308,35 @@ function FollowUpsTable({ leads, onOpen, isOverdue = false }: FollowUpsTableProp
                     const primaryContact = lead.contacts?.find((c: any) => c.isPrimary) || lead.contacts?.[0];
                     const phone = lead.business?.phone_number || primaryContact?.phone || 'No phone';
                     const activeFollowup = lead.followUps?.find((f: any) => f.status === 'PENDING');
+                    const category = lead.business?.category?.displayName || lead.business?.category?.name || lead.business?.google_category || 'Business';
+                    const location = [lead.business?.area?.name, lead.business?.city?.name, lead.business?.state?.name].filter(Boolean).join(', ') || 'Location N/A';
+                    const websiteUrl = lead.websiteUrl || lead.business?.website;
 
                     return (
                         <tr key={lead.id} style={{ borderBottom: idx === leads.length - 1 ? 'none' : '1px solid var(--border-color)', fontSize: '13px' }}>
-                            <td style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--text-main)' }}>{lead.business?.business_name || 'Unnamed Business'}</td>
                             <td style={{ padding: '12px 18px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-main)' }}>
-                                    <Phone size={13} style={{ color: 'var(--text-muted)' }} />
+                                <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{lead.business?.business_name || 'Unnamed Business'}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    <span style={{ color: 'var(--accent-primary)' }}>{category}</span> • <span>{location}</span>
+                                </div>
+                            </td>
+                            <td style={{ padding: '12px 18px' }}>
+                                <div style={{ fontWeight: 500, color: 'var(--text-main)', fontSize: '12px' }}>{primaryContact?.name || 'Primary Contact'}</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', marginTop: '2px', fontSize: '12px' }}>
+                                    <Phone size={12} />
                                     <span>{phone}</span>
                                 </div>
+                            </td>
+                            <td style={{ padding: '12px 18px' }}>
+                                {websiteUrl ? (
+                                    <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 500 }}>
+                                        <Globe size={13} />
+                                        <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '160px' }}>{websiteUrl}</span>
+                                        <ExternalLink size={11} />
+                                    </a>
+                                ) : (
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic' }}>Website link not set</span>
+                                )}
                             </td>
                             <td style={{ padding: '12px 18px', color: isOverdue ? 'var(--status-lost)' : 'var(--text-muted)', fontWeight: isOverdue ? 600 : 400 }}>
                                 {activeFollowup ? new Date(activeFollowup.dueAt).toLocaleDateString() : 'N/A'}
@@ -1279,9 +1357,14 @@ function FollowUpsTable({ leads, onOpen, isOverdue = false }: FollowUpsTableProp
                                 </span>
                             </td>
                             <td style={{ padding: '12px 18px', textAlign: 'right' }}>
-                                <button onClick={() => onOpen(lead.id)} className="btn-secondary" style={{ padding: '5px 10px', fontSize: '12px' }}>
-                                    Open
-                                </button>
+                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    <button onClick={() => onOpen(lead.id)} className="btn-secondary" style={{ padding: '5px 10px', fontSize: '12px' }}>
+                                        Open
+                                    </button>
+                                    <a href={`tel:${phone}`} className="btn-primary" style={{ padding: '5px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+                                        <Phone size={11} /> Call
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     );

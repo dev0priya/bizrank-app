@@ -37,11 +37,6 @@ export async function POST(
             return NextResponse.json({ error: 'Cannot share with Swati: Website URL is missing.' }, { status: 400 });
         }
 
-        // Duplicate protection: check if already handed over
-        if (currentLead.handoffStatus === 'HANDED_OVER') {
-            return NextResponse.json({ success: true, message: 'Already shared with Swati', lead: currentLead });
-        }
-
         // Find Swati Chaudhary's user account
         const swatiUser = await prisma.user.findFirst({
             where: { role: 'COMMUNICATION' }
@@ -49,6 +44,11 @@ export async function POST(
 
         if (!swatiUser) {
             return NextResponse.json({ error: 'Communication Agent account (Swati Chaudhary) not found.' }, { status: 500 });
+        }
+
+        // Duplicate protection: check if already handed over to Swati and currently waiting in New status
+        if (currentLead.handoffStatus === 'HANDED_OVER' && currentLead.swatiId === swatiUser.id && currentLead.clientStatus === 'New') {
+            return NextResponse.json({ success: true, message: 'Already shared with Swati', lead: currentLead });
         }
 
         const { username } = getAuthorizedUser(request);
@@ -60,6 +60,7 @@ export async function POST(
                     handoffStatus: 'HANDED_OVER',
                     handoffDate: new Date(),
                     swatiId: swatiUser.id,
+                    websiteUrl: currentLead.websiteUrl || websiteUrl,
                     clientStatus: 'New' // Initialized to New to match Swati workspace filters
                 },
                 include: { business: true, swati: true, developer: true }
@@ -107,14 +108,24 @@ export async function POST(
                     }
                 });
 
-                await tx.websiteAssignment.create({
-                    data: {
+                const existingAssignment = await tx.websiteAssignment.findFirst({
+                    where: {
                         crmLeadId: leadId,
                         workspaceId: swatiWs.id,
-                        assignedToUserId: swatiUser.id,
-                        status: 'ACTIVE'
+                        assignedToUserId: swatiUser.id
                     }
                 });
+
+                if (!existingAssignment) {
+                    await tx.websiteAssignment.create({
+                        data: {
+                            crmLeadId: leadId,
+                            workspaceId: swatiWs.id,
+                            assignedToUserId: swatiUser.id,
+                            status: 'ACTIVE'
+                        }
+                    });
+                }
 
                 if (mainWs) {
                     await tx.workspaceShare.upsert({
