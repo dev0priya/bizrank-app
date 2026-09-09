@@ -92,6 +92,7 @@ VALUES
   ('ws-main-01', 'Main Workspace', 'usr-admin-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('ws-swati-01', 'Swati Chaudhary Workspace', 'usr-swati-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('ws-simran-01', 'Simran Kaur Workspace', 'usr-simran-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('ws-sakshi-01', 'Sakshi Sharma Workspace', 'usr-sakshi-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('ws-sumit-01', 'Sumit Thakur Workspace', 'usr-sumit-01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 5. Seed Workspace Memberships
@@ -100,9 +101,11 @@ VALUES
   ('wm-main-admin', 'ws-main-01', 'usr-admin-01', 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('wm-main-swati', 'ws-main-01', 'usr-swati-01', 'MEMBER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('wm-main-simran', 'ws-main-01', 'usr-simran-01', 'MEMBER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('wm-main-sakshi', 'ws-main-01', 'usr-sakshi-01', 'MEMBER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('wm-main-sumit', 'ws-main-01', 'usr-sumit-01', 'MEMBER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('wm-swati-owner', 'ws-swati-01', 'usr-swati-01', 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('wm-simran-owner', 'ws-simran-01', 'usr-simran-01', 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('wm-sakshi-owner', 'ws-sakshi-01', 'usr-sakshi-01', 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('wm-sumit-owner', 'ws-sumit-01', 'usr-sumit-01', 'OWNER', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 6. Seed SHARED Website (ID 999 - Shared with Main Workspace)

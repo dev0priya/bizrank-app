@@ -77,8 +77,8 @@ export function Topbar() {
     else if (role === 'SALES_AGENT') username = 'sales.agent@bizrank.com';
     else if (role === 'VIEWER') username = 'viewer@bizrank.com';
     else if (role === 'DEVELOPER_SIMRAN') { username = 'simran@bizrank.com'; realRole = 'DEVELOPER'; targetWs = 'ws-simran-01'; }
-    else if (role === 'DEVELOPER_SAKSHI') { username = 'sakshi@bizrank.com'; realRole = 'DEVELOPER'; }
-    else if (role === 'DEVELOPER_SUMIT') { username = 'sumit@bizrank.com'; realRole = 'DEVELOPER'; }
+    else if (role === 'DEVELOPER_SAKSHI') { username = 'sakshi@bizrank.com'; realRole = 'DEVELOPER'; targetWs = 'ws-sakshi-01'; }
+    else if (role === 'DEVELOPER_SUMIT') { username = 'sumit@bizrank.com'; realRole = 'DEVELOPER'; targetWs = 'ws-sumit-01'; }
     else if (role === 'COMMUNICATION_SWATI') { username = 'swati@bizrank.com'; realRole = 'COMMUNICATION'; targetWs = 'ws-swati-01'; }
 
     localStorage.setItem('bizrank_active_role', realRole);

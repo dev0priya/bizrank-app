@@ -1,3 +1,4 @@
+import '../../../../lib/polyfills';
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
 import { ProviderFactory } from '../../../../services/providerFactory';
@@ -5,7 +6,10 @@ import { DataProcessor } from '../../../../services/processor';
 import { WebsiteAuditor } from '../../../../services/auditor';
 import { OpportunityScorer } from '../../../../services/opportunityScorer';
 import { normalizeCategoryName } from '../../../../services/categoryNormalizer';
+import { resolveGoogleMapsUrl } from '../../../../services/businessLinks';
 import type { WebsiteStatus } from '../../../../config/opportunityConfig';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
     const params = await context.params;
@@ -98,7 +102,14 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             };
             const getCatId = (name: string | null) => getCatInfo(name)?.id || null;
             const getCityId = (name: string | null) => name ? cityMap.get(name.toLowerCase()) || null : null;
-            const getStateId = (name: string | null) => name ? stateMap.get(name.toLowerCase()) || null : null;
+            const getStateId = (name: string | null) => {
+                if (!name) return null;
+                const lower = name.toLowerCase().trim();
+                const direct = stateMap.get(lower);
+                if (direct) return direct;
+                if (lower.includes('delhi')) return stateMap.get('delhi') || null;
+                return null;
+            };
             const getCountryId = (code: string | null) => {
                 if (!code) return null;
                 const normalized = code.toLowerCase();
@@ -128,6 +139,14 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 const countryId = getCountryId(biz.country) || job.countryId;
                 const areaId = job.areaId || null;
                 const districtId = job.districtId || null;
+
+                const googleMapsUrl = resolveGoogleMapsUrl({
+                    provider: biz.provider || job.provider || 'apify',
+                    placeId: biz.place_id,
+                    googleMapsUri: biz.google_maps_url,
+                    placeName: biz.business_name,
+                    address: biz.full_address
+                }) || biz.google_maps_url;
 
                 // Determine website status correctly for all providers
                 let websiteStatus: WebsiteStatus = 'UNKNOWN';
@@ -199,7 +218,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                     website_exists: biz.website_exists,
                     website_status: websiteStatus,
                     email: biz.email,
-                    google_maps_url: biz.google_maps_url,
+                    google_maps_url: googleMapsUrl,
                     rating: biz.rating,
                     review_count: biz.review_count,
                     latitude: biz.latitude,
@@ -242,7 +261,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                             review_count: biz.review_count,
                             phone_number: biz.phone_number,
                             website: biz.website,
-                            google_maps_url: biz.google_maps_url,
+                            google_maps_url: googleMapsUrl,
                             website_exists: biz.website_exists,
                             business_status: biz.business_status,
                             email: biz.email,
@@ -259,9 +278,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                         },
                         create: data
                     });
-                } else if (biz.google_maps_url) {
+                } else if (googleMapsUrl || biz.google_maps_url) {
+                    const targetMapsUrl = googleMapsUrl || biz.google_maps_url;
                     // Fallback composite or google maps url
-                    const existing = await prisma.business.findFirst({ where: { google_maps_url: biz.google_maps_url } });
+                    const existing = await prisma.business.findFirst({ where: { google_maps_url: targetMapsUrl } });
                     if (!existing) {
                         await prisma.business.create({ data });
                     } else {
@@ -278,7 +298,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                                 review_count: biz.review_count,
                                 phone_number: biz.phone_number,
                                 website: biz.website,
-                                google_maps_url: biz.google_maps_url,
+                                google_maps_url: targetMapsUrl,
                                 website_exists: biz.website_exists,
                                 business_status: biz.business_status,
                                 email: biz.email,

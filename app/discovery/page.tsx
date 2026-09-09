@@ -166,6 +166,7 @@ export default function BusinessDiscoveryPage() {
   const [selectedAssignee, setSelectedAssignee] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
+  const [viewingBusiness, setViewingBusiness] = useState<BusinessResult | null>(null);
 
   // Job state
   const [jobId, setJobId] = useState<number | null>(null);
@@ -773,7 +774,7 @@ export default function BusinessDiscoveryPage() {
                       disabled={!selectedState}
                       value={locationQuery}
                       onChange={e => handleLocationInput(e.target.value)}
-                      onFocus={() => { if (locationSuggestions.length > 0) setShowSuggestions(true); }}
+                      onFocus={() => { if (selectedState) setShowSuggestions(true); }}
                       style={{
                         width: '100%', height: '46px', padding: '0 36px 0 14px', borderRadius: '10px',
                         background: selectedLocation ? '#162032' : '#141c2c',
@@ -788,32 +789,59 @@ export default function BusinessDiscoveryPage() {
                     )}
                   </div>
 
-                  {/* AUTOCOMPLETE DROPDOWN */}
-                  {showSuggestions && locationSuggestions.length > 0 && (
+                  {/* AUTOCOMPLETE / RECOMMENDED AREAS DROPDOWN */}
+                  {showSuggestions && (locationSuggestions.length > 0 || popularAreas.length > 0) && (
                     <div style={{
                       position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '6px',
                       background: '#162032', border: '1px solid #283754', borderRadius: '10px',
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.5)', zIndex: 100, maxHeight: '240px', overflowY: 'auto'
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.5)', zIndex: 100, maxHeight: '280px', overflowY: 'auto'
                     }}>
-                      {locationSuggestions.map(loc => (
-                        <div
-                          key={loc.id}
-                          onClick={() => handleLocationSelect(loc)}
-                          style={{
-                            padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #1f293d',
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            background: selectedLocation?.id === loc.id ? 'rgba(59,130,246,0.15)' : 'transparent'
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>{loc.name}</div>
-                            <div style={{ fontSize: '11px', color: '#9ca3af' }}>{loc.displayName}</div>
+                      {locationSuggestions.length > 0 ? (
+                        locationSuggestions.map(loc => (
+                          <div
+                            key={loc.id}
+                            onClick={() => handleLocationSelect(loc)}
+                            style={{
+                              padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #1f293d',
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              background: selectedLocation?.id === loc.id ? 'rgba(59,130,246,0.15)' : 'transparent'
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>{loc.name}</div>
+                              <div style={{ fontSize: '11px', color: '#9ca3af' }}>{loc.displayName}</div>
+                            </div>
+                            <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: '#1f293d', color: '#9ca3af' }}>
+                              {loc.type}
+                            </span>
                           </div>
-                          <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: '#1f293d', color: '#9ca3af' }}>
-                            {loc.type}
-                          </span>
+                        ))
+                      ) : (
+                        <div>
+                          <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #1f293d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Sparkles size={12} /> Famous / Recommended Areas in {selectedStateObj?.name || 'Selected State'}
+                          </div>
+                          {popularAreas.map(loc => (
+                            <div
+                              key={loc.id}
+                              onClick={() => handleLocationSelect(loc)}
+                              style={{
+                                padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #1f293d',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                background: selectedLocation?.id === loc.id ? 'rgba(59,130,246,0.15)' : 'transparent'
+                              }}
+                            >
+                              <div>
+                                <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>{loc.name}</div>
+                                <div style={{ fontSize: '11px', color: '#9ca3af' }}>{loc.displayName}</div>
+                              </div>
+                              <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: '#1f293d', color: '#3b82f6' }}>
+                                {loc.type}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>
@@ -1060,29 +1088,44 @@ export default function BusinessDiscoveryPage() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '160px' }}>
-                      {biz.google_maps_url ? (
-                        <a
-                          href={biz.google_maps_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                            padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                            background: '#1f293d', color: '#60a5fa', textDecoration: 'none', border: '1px solid #283754'
-                          }}
-                        >
-                          <MapPin size={14} /> Google Maps <ExternalLink size={12} />
-                        </a>
-                      ) : (
-                        <span style={{ fontSize: '11px', color: '#6b7280', textAlign: 'center' }}>No Maps Link</span>
-                      )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '170px' }}>
+                      {/* VIEW RESULT BUTTON */}
+                      <button
+                        onClick={() => setViewingBusiness(biz)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                          padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                          background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.35)',
+                          cursor: 'pointer', transition: 'all 0.15s'
+                        }}
+                      >
+                        <Eye size={14} /> View Result
+                      </button>
+
+                      {/* OPEN IN GOOGLE MAPS */}
+                      {(() => {
+                        const mapsUrl = biz.google_maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(biz.business_name + ' ' + (biz.full_address || ''))}`;
+                        return (
+                          <a
+                            href={mapsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                              padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                              background: '#1f293d', color: '#60a5fa', textDecoration: 'none', border: '1px solid #283754'
+                            }}
+                          >
+                            <MapPin size={14} /> Open in Maps <ExternalLink size={12} />
+                          </a>
+                        );
+                      })()}
 
                       {biz.website ? (
                         <a
                           href={biz.website}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           style={{
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                             padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
@@ -1418,6 +1461,169 @@ export default function BusinessDiscoveryPage() {
                 {assignLoading ? <Loader2 size={14} className="animate-spin" /> : null} Assign
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW RESULT / BUSINESS DETAILS MODAL */}
+      {viewingBusiness && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div style={{ width: '100%', maxWidth: '640px', background: '#111827', border: '1px solid #1f293d', borderRadius: '16px', padding: '28px', boxShadow: '0 25px 50px rgba(0,0,0,0.6)', maxHeight: '90vh', overflowY: 'auto' }}>
+            
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', borderBottom: '1px solid #1f293d', paddingBottom: '16px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                  <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                    {viewingBusiness.business_name}
+                  </h2>
+                  <OpportunityBadge level={viewingBusiness.opportunity_level} score={viewingBusiness.opportunity_score} />
+                </div>
+                <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>
+                  {viewingBusiness.category?.name || 'General Business'} · Discovered in {viewingBusiness.city?.name || 'Area'}, {viewingBusiness.state?.name || 'State'}
+                </p>
+              </div>
+              <button onClick={() => setViewingBusiness(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '4px' }}>
+                <X size={22} />
+              </button>
+            </div>
+
+            {/* Grid of Details */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+              
+              {/* Full Address */}
+              <div style={{ gridColumn: 'span 2', padding: '12px 16px', background: '#162032', borderRadius: '10px', border: '1px solid #283754' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' }}>📍 Complete Address</div>
+                <div style={{ fontSize: '14px', color: '#ffffff', lineHeight: 1.4 }}>
+                  {viewingBusiness.full_address || 'Address details not provided'}
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div style={{ padding: '12px 16px', background: '#162032', borderRadius: '10px', border: '1px solid #283754' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' }}>📞 Phone Number</div>
+                {viewingBusiness.phone_number ? (
+                  <a href={`tel:${viewingBusiness.phone_number}`} style={{ fontSize: '14px', fontWeight: 600, color: '#3b82f6', textDecoration: 'none' }}>
+                    {viewingBusiness.phone_number}
+                  </a>
+                ) : (
+                  <span style={{ fontSize: '13px', color: '#6b7280' }}>Not Available</span>
+                )}
+              </div>
+
+              {/* Rating & Reviews */}
+              <div style={{ padding: '12px 16px', background: '#162032', borderRadius: '10px', border: '1px solid #283754' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' }}>⭐ Google Rating</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>{viewingBusiness.rating ? `${viewingBusiness.rating} / 5.0` : 'No rating'}</span>
+                  <span style={{ fontSize: '12px', color: '#9ca3af' }}>({viewingBusiness.review_count || 0} reviews)</span>
+                </div>
+              </div>
+
+              {/* Website Status */}
+              <div style={{ padding: '12px 16px', background: '#162032', borderRadius: '10px', border: '1px solid #283754' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '6px' }}>🌐 Website Status</div>
+                <WebsiteBadge status={viewingBusiness.website_status} />
+              </div>
+
+              {/* Opportunity Score */}
+              <div style={{ padding: '12px 16px', background: '#162032', borderRadius: '10px', border: '1px solid #283754' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' }}>🎯 Opportunity Score</div>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: '#10b981' }}>
+                  {viewingBusiness.opportunity_score ?? 0} / 100
+                </div>
+              </div>
+
+              {/* Official Website */}
+              <div style={{ gridColumn: 'span 2', padding: '12px 16px', background: '#162032', borderRadius: '10px', border: '1px solid #283754' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' }}>🔗 Website URL</div>
+                {viewingBusiness.website ? (
+                  <a href={viewingBusiness.website} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: '#34d399', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', wordBreak: 'break-all' }}>
+                    <Globe size={14} /> {viewingBusiness.website} <ExternalLink size={12} />
+                  </a>
+                ) : (
+                  <span style={{ fontSize: '13px', color: '#ef4444' }}>No website found. High opportunity lead for web development!</span>
+                )}
+              </div>
+
+              {/* Assignment & CRM Status */}
+              <div style={{ gridColumn: 'span 2', padding: '12px 16px', background: '#162032', borderRadius: '10px', border: '1px solid #283754', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' }}>👤 Lead Assignment Status</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: viewingBusiness.crm_lead?.assignedTo ? '#34d399' : '#9ca3af' }}>
+                    {viewingBusiness.crm_lead?.assignedTo ? `Assigned to: ${viewingBusiness.crm_lead.assignedTo}` : 'Currently Unassigned'}
+                  </div>
+                </div>
+                <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '6px', background: viewingBusiness.crm_lead ? 'rgba(16,185,129,0.15)' : 'rgba(156,163,175,0.15)', color: viewingBusiness.crm_lead ? '#10b981' : '#9ca3af' }}>
+                  {viewingBusiness.crm_lead ? 'In CRM Pipeline' : 'Discovery Only'}
+                </span>
+              </div>
+
+            </div>
+
+            {/* Action Buttons Row */}
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              {(() => {
+                const mapsUrl = viewingBusiness.google_maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(viewingBusiness.business_name + ' ' + (viewingBusiness.full_address || ''))}`;
+                return (
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 16px',
+                      borderRadius: '10px', fontSize: '13px', fontWeight: 700, background: '#1f293d',
+                      color: '#60a5fa', textDecoration: 'none', border: '1px solid #283754'
+                    }}
+                  >
+                    <MapPin size={15} /> Open in Google Maps <ExternalLink size={13} />
+                  </a>
+                );
+              })()}
+
+              {!viewingBusiness.crm_lead ? (
+                <button
+                  onClick={() => {
+                    handleAddToCRM(viewingBusiness.id);
+                  }}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px',
+                    borderRadius: '10px', fontSize: '13px', fontWeight: 700, background: '#2563eb',
+                    color: '#ffffff', border: 'none', cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={15} /> Add to CRM
+                </button>
+              ) : (
+                <Link
+                  href={`/crm/leads/${viewingBusiness.crm_lead.id}`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px',
+                    borderRadius: '10px', fontSize: '13px', fontWeight: 700, background: '#162032',
+                    color: '#34d399', border: '1px solid #283754', textDecoration: 'none'
+                  }}
+                >
+                  View Lead in CRM <ArrowRight size={14} />
+                </Link>
+              )}
+
+              <button
+                onClick={() => {
+                  const biz = viewingBusiness;
+                  setViewingBusiness(null);
+                  handleAssignClick(biz);
+                }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px',
+                  borderRadius: '10px', fontSize: '13px', fontWeight: 700,
+                  background: viewingBusiness.crm_lead?.assignedTo ? '#1f293d' : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  color: '#ffffff', border: 'none', cursor: 'pointer'
+                }}
+              >
+                {viewingBusiness.crm_lead?.assignedTo ? 'Reassign Member' : 'Assign to Team Member'}
+              </button>
+            </div>
+
           </div>
         </div>
       )}

@@ -31,7 +31,9 @@ export async function POST(
 
     try {
         const body = await request.json();
-        const { method, notes, status, nextFollowUpDate, nextFollowUpTime } = body;
+        const { method, notes, status } = body;
+        const nextFollowUpDate = body.nextFollowUpDate || body.followUpDate;
+        const nextFollowUpTime = body.nextFollowUpTime || body.followUpTime;
 
         if (!status || !['New', 'Interested', 'Follow-up Required', 'No Response', 'Not Interested', 'Closed'].includes(status)) {
             return NextResponse.json({ error: 'Invalid client status' }, { status: 400 });

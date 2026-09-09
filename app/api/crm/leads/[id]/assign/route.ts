@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '../../../../../../lib/prisma';
 import { checkCRMAuthorization, getAuthorizedUser } from '../../../../../../services/auth_middleware';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(
     request: Request,
     context: { params: Promise<{ id: string }> }
@@ -18,16 +20,27 @@ export async function POST(
 
     try {
         const body = await request.json();
-        const { assignedTo } = body;
+        const assignedTo = body.assignedTo || body.developerId || body.userId;
 
         if (!assignedTo) {
             return NextResponse.json({ error: 'Assignee is required' }, { status: 400 });
         }
 
-        // Find the user by ID, Name or Username
+        const normalized = String(assignedTo).trim().toLowerCase();
+        let directUserId: string | null = null;
+        if (normalized.includes('sakshi') || normalized.includes('shakshi')) {
+            directUserId = 'usr-sakshi-01';
+        } else if (normalized.includes('simran')) {
+            directUserId = 'usr-simran-01';
+        } else if (normalized.includes('sumit')) {
+            directUserId = 'usr-sumit-01';
+        }
+
+        // Find the user by ID, Name or Username with flexible matching
         const targetUser = await prisma.user.findFirst({
             where: {
                 OR: [
+                    ...(directUserId ? [{ id: directUserId }] : []),
                     { id: assignedTo },
                     { name: assignedTo },
                     { username: assignedTo }
@@ -55,7 +68,7 @@ export async function POST(
         const { username } = getAuthorizedUser(request);
 
         const updatedLead = await prisma.$transaction(async (tx) => {
-            // Update Lead with developerId and legacy assignedTo string
+            // Update Lead with developerId and assignedTo string
             const updated = await tx.cRMLead.update({
                 where: { id: leadId },
                 data: { 
@@ -71,6 +84,59 @@ export async function POST(
                 where: { id: currentLead.businessId },
                 data: { assigned_user: targetUser.name }
             });
+
+            // Associate with the developer's workspace so it appears in their workspace immediately
+            const devWs = await tx.workspace.findFirst({ where: { ownerId: targetUser.id } });
+            const mainWs = await tx.workspace.findFirst({ where: { name: 'Main Workspace' } });
+
+            if (devWs) {
+                await tx.workspaceWebsite.upsert({
+                    where: {
+                        workspaceId_crmLeadId: {
+                            workspaceId: devWs.id,
+                            crmLeadId: leadId
+                        }
+                    },
+                    update: {},
+                    create: {
+                        id: `ww-${devWs.id}-${leadId}`,
+                        workspaceId: devWs.id,
+                        crmLeadId: leadId
+                    }
+                });
+
+                await tx.websiteAssignment.upsert({
+                    where: { id: `wa-${devWs.id}-${leadId}` },
+                    update: {
+                        assignedToUserId: targetUser.id,
+                        status: 'ACTIVE'
+                    },
+                    create: {
+                        id: `wa-${devWs.id}-${leadId}`,
+                        crmLeadId: leadId,
+                        workspaceId: devWs.id,
+                        assignedToUserId: targetUser.id,
+                        status: 'ACTIVE'
+                    }
+                });
+            }
+
+            if (mainWs) {
+                await tx.workspaceWebsite.upsert({
+                    where: {
+                        workspaceId_crmLeadId: {
+                            workspaceId: mainWs.id,
+                            crmLeadId: leadId
+                        }
+                    },
+                    update: {},
+                    create: {
+                        id: `ww-main-${leadId}`,
+                        workspaceId: mainWs.id,
+                        crmLeadId: leadId
+                    }
+                });
+            }
 
             // Log CRM Audit Log
             await tx.cRMAuditLog.create({

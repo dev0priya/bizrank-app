@@ -33,7 +33,8 @@ export async function GET(request: Request) {
         const targetWorkspace = searchParams.get('workspaceId') || workspaceId;
 
         // If scoped to a specific workspace, fetch workspace-owned leads and accepted shared leads
-        if (targetWorkspace) {
+        if (targetWorkspace && targetWorkspace !== 'ws-main-01') {
+            const ws = await prisma.workspace.findUnique({ where: { id: targetWorkspace } });
             const ownedLeadLinks = await prisma.workspaceWebsite.findMany({
                 where: { workspaceId: targetWorkspace },
                 select: { crmLeadId: true }
@@ -48,7 +49,12 @@ export async function GET(request: Request) {
                 ...sharedLeadLinks.map(s => s.crmLeadId)
             ]));
 
-            where.id = { in: leadIds };
+            const workspaceConditions: any[] = [{ id: { in: leadIds } }];
+            if (ws?.ownerId) {
+                workspaceConditions.push({ developerId: ws.ownerId });
+                workspaceConditions.push({ swatiId: ws.ownerId });
+            }
+            where.OR = workspaceConditions;
         }
 
         if (role === 'SALES_AGENT') {
@@ -301,6 +307,25 @@ export async function POST(request: Request) {
                 crm_status: 'Lead'
             }
         });
+
+        // Associate with Main Workspace
+        const mainWs = await prisma.workspace.findFirst({ where: { name: 'Main Workspace' } });
+        if (mainWs) {
+            await prisma.workspaceWebsite.upsert({
+                where: {
+                    workspaceId_crmLeadId: {
+                        workspaceId: mainWs.id,
+                        crmLeadId: newLead.id
+                    }
+                },
+                update: {},
+                create: {
+                    id: `ww-main-${newLead.id}`,
+                    workspaceId: mainWs.id,
+                    crmLeadId: newLead.id
+                }
+            });
+        }
 
         return NextResponse.json({ success: true, leadId: newLead.id }, { status: 201 });
     } catch (error: any) {

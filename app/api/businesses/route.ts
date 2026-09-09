@@ -56,11 +56,12 @@ export async function GET(request: Request) {
       where.business_status = { in: ['OPERATIONAL', 'Active', 'active', 'operational'] };
     }
 
-    // Default: only show opportunity-eligible businesses in sales view
-    if (opportunityEligibleParam === 'false') {
-      // Show all including non-eligible
-    } else {
-      // Default: only eligible
+    // Default: only show opportunity-eligible businesses in sales view when not filtering by specific jobId
+    if (opportunityEligibleParam === 'true') {
+      where.opportunity_eligible = true;
+    } else if (opportunityEligibleParam === 'false') {
+      where.opportunity_eligible = false;
+    } else if (!jobId) {
       where.opportunity_eligible = true;
     }
 

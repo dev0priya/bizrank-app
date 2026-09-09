@@ -56,6 +56,16 @@ export const getPrismaClient = (): PrismaClient => {
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, prop) {
     const client = getPrismaClient();
+    if (prop === '$transaction') {
+      return async (arg: any, options?: any) => {
+        if (typeof arg === 'function') {
+          // Cloudflare D1 does not support interactive transactions ($transaction(async tx => ...))
+          // Gracefully execute sequentially using the prisma proxy as tx
+          return await arg(prisma);
+        }
+        return await client.$transaction(arg, options);
+      };
+    }
     const value = (client as any)[prop];
     return typeof value === 'function' ? value.bind(client) : value;
   },

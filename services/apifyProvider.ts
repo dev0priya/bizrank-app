@@ -1,15 +1,14 @@
-import { ApifyClient } from 'apify-client';
 import { Config } from '../config/config';
 import { BusinessProvider, SearchParams } from './providerFactory';
 
 export class ApifyProvider implements BusinessProvider {
-    private client: ApifyClient;
+    private token: string;
 
     constructor() {
-        if (!Config.APIFY_API_TOKEN) {
+        this.token = Config.APIFY_API_TOKEN || process.env.APIFY_API_TOKEN || '';
+        if (!this.token) {
             throw new Error("APIFY_API_TOKEN is missing. Please configure it in .env to use the Apify provider.");
         }
-        this.client = new ApifyClient({ token: Config.APIFY_API_TOKEN });
     }
 
     async startSearch({ country, state, district, city, area, category, maxResults = 20 }: SearchParams) {
@@ -52,26 +51,44 @@ export class ApifyProvider implements BusinessProvider {
             scrapeResponseFromOwnerText: false,
         };
 
-        const run = await this.client.actor(Config.APIFY_ACTOR_ID).start(runInput);
-        console.log(`Scraper started. Run ID: ${run.id}`);
+        const safeActorId = Config.APIFY_ACTOR_ID.replace('/', '~');
+        const url = `https://api.apify.com/v2/acts/${safeActorId}/runs?token=${encodeURIComponent(this.token)}`;
+        
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(runInput)
+        });
+
+        if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            let parsedErr: any = null;
+            try { parsedErr = JSON.parse(errText); } catch {}
+            throw new Error(parsedErr?.error?.message || errText || `Failed to start Apify actor (${res.status})`);
+        }
+
+        const json = await res.json() as { data: { id: string; status: string; defaultDatasetId: string } };
+        console.log(`Scraper started. Run ID: ${json.data.id}`);
         
         return {
-            id: run.id,
-            status: run.status,
-            defaultDatasetId: run.defaultDatasetId
+            id: json.data.id,
+            status: json.data.status,
+            defaultDatasetId: json.data.defaultDatasetId
         };
     }
 
     async checkRunStatus(runId: string) {
         try {
-            const run = await this.client.run(runId).get();
-            if (!run) {
+            const url = `https://api.apify.com/v2/actor-runs/${encodeURIComponent(runId)}?token=${encodeURIComponent(this.token)}`;
+            const res = await fetch(url);
+            if (!res.ok) {
                 return { id: runId, status: 'FAILED', defaultDatasetId: '' };
             }
+            const json = await res.json() as { data: { id: string; status: string; defaultDatasetId: string } };
             return {
-                id: run.id,
-                status: run.status,
-                defaultDatasetId: run.defaultDatasetId
+                id: json.data.id,
+                status: json.data.status,
+                defaultDatasetId: json.data.defaultDatasetId
             };
         } catch (e: any) {
             console.error('[ApifyProvider] checkRunStatus failed:', e);
@@ -82,8 +99,14 @@ export class ApifyProvider implements BusinessProvider {
     async getDatasetItems(datasetId: string) {
         try {
             if (!datasetId) return [];
-            const { items } = await this.client.dataset(datasetId).listItems();
-            return items || [];
+            const url = `https://api.apify.com/v2/datasets/${encodeURIComponent(datasetId)}/items?token=${encodeURIComponent(this.token)}&clean=true`;
+            const res = await fetch(url);
+            if (!res.ok) {
+                console.error(`[ApifyProvider] getDatasetItems returned ${res.status}`);
+                return [];
+            }
+            const items = await res.json();
+            return Array.isArray(items) ? items : [];
         } catch (e: any) {
             console.error('[ApifyProvider] getDatasetItems failed:', e);
             return [];

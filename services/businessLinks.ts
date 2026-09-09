@@ -1,4 +1,7 @@
-const GOOGLE_MAPS_HOSTS = new Set(['google.com', 'www.google.com', 'maps.google.com', 'www.maps.google.com']);
+const GOOGLE_MAPS_HOSTS = new Set([
+  'google.com', 'www.google.com', 'maps.google.com', 'www.maps.google.com',
+  'maps.app.goo.gl', 'goo.gl'
+]);
 
 function toUrl(value: string | null | undefined): URL | null {
   if (!value || !value.trim()) return null;
@@ -21,29 +24,35 @@ export function validateWebsiteUrl(value: string | null | undefined): boolean {
 
 export function validateGoogleMapsUrl(value: string | null | undefined, placeId?: string | null): boolean {
   const url = toUrl(value);
-  if (!url || url.protocol !== 'https:' || !GOOGLE_MAPS_HOSTS.has(url.hostname.toLowerCase())) return false;
+  if (!url) return false;
+  const host = url.hostname.toLowerCase();
+  const isGoogleHost = GOOGLE_MAPS_HOSTS.has(host) || host.endsWith('.google.com');
+  if (!isGoogleHost) return false;
+  if (host === 'maps.app.goo.gl' || host === 'goo.gl') return true;
   const path = url.pathname.toLowerCase();
-  const isMapsUrl = path.includes('/maps/') || path.includes('/maps') || path.includes('/place/') || path.includes('/search/');
+  const isMapsUrl = path.includes('/maps') || path.includes('/place') || path.includes('/search');
   if (!isMapsUrl) return false;
   const queryPlaceId = url.searchParams.get('query_place_id');
   if (queryPlaceId && placeId && queryPlaceId !== placeId) return false;
-  // A search URL is exact only when it carries the matching Google Place ID.
-  if (path.includes('/search/') && !queryPlaceId) return false;
   return true;
 }
 
-export function buildGoogleMapsUrl(placeId: string | null | undefined, placeName: string | null | undefined): string | null {
-  if (!placeId || !placeName) return null;
-  const params = new URLSearchParams({ api: '1', query: placeName, query_place_id: placeId });
+export function buildGoogleMapsUrl(placeId: string | null | undefined, placeName: string | null | undefined, address?: string | null): string | null {
+  if (!placeName && !placeId) return null;
+  const query = [placeName, address].filter(Boolean).join(', ');
+  const params = new URLSearchParams({ api: '1' });
+  if (query) params.set('query', query);
+  if (placeId) params.set('query_place_id', placeId);
   return `https://www.google.com/maps/search/?${params.toString()}`;
 }
 
-export function resolveGoogleMapsUrl(input: { provider?: string | null; placeId?: string | null; googleMapsUri?: string | null; placeName?: string | null }): string | null {
+export function resolveGoogleMapsUrl(input: { provider?: string | null; placeId?: string | null; googleMapsUri?: string | null; placeName?: string | null; address?: string | null }): string | null {
   if (validateGoogleMapsUrl(input.googleMapsUri, input.placeId)) return input.googleMapsUri!.trim();
-  // Google Places and Apify Place IDs can safely be converted into exact Google Maps URLs.
-  const provider = input.provider?.toLowerCase();
-  if (input.placeId && input.placeName && (provider === 'google_places' || provider === 'apify')) {
-    return buildGoogleMapsUrl(input.placeId, input.placeName);
+  if (input.placeId && input.placeName) {
+    return buildGoogleMapsUrl(input.placeId, input.placeName, input.address);
+  }
+  if (input.placeName) {
+    return buildGoogleMapsUrl(input.placeId, input.placeName, input.address);
   }
   return null;
 }
