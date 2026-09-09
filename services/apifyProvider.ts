@@ -63,16 +63,30 @@ export class ApifyProvider implements BusinessProvider {
     }
 
     async checkRunStatus(runId: string) {
-        const run = await this.client.run(runId).get();
-        return {
-            id: run!.id,
-            status: run!.status,
-            defaultDatasetId: run!.defaultDatasetId
-        };
+        try {
+            const run = await this.client.run(runId).get();
+            if (!run) {
+                return { id: runId, status: 'FAILED', defaultDatasetId: '' };
+            }
+            return {
+                id: run.id,
+                status: run.status,
+                defaultDatasetId: run.defaultDatasetId
+            };
+        } catch (e: any) {
+            console.error('[ApifyProvider] checkRunStatus failed:', e);
+            return { id: runId, status: 'FAILED', defaultDatasetId: '' };
+        }
     }
 
     async getDatasetItems(datasetId: string) {
-        const { items } = await this.client.dataset(datasetId).listItems();
-        return items;
+        try {
+            if (!datasetId) return [];
+            const { items } = await this.client.dataset(datasetId).listItems();
+            return items || [];
+        } catch (e: any) {
+            console.error('[ApifyProvider] getDatasetItems failed:', e);
+            return [];
+        }
     }
 }

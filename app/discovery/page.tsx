@@ -447,14 +447,23 @@ export default function BusinessDiscoveryPage() {
   useEffect(() => {
     if (!jobId || jobStatus === 'Completed' || jobStatus === 'Failed') return;
     const interval = setInterval(async () => {
-      const res = await fetch(`/api/jobs/${jobId}`);
-      const data = await res.json();
-      setJobStatus(data.status);
-      setProgress(data.progress || 0);
-      if (data.status === 'Completed') {
-        clearInterval(interval);
-        fetchResults(jobId, 1);
-        loadJobsAndHistory();
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        const data = await res.json();
+        if (data.status) {
+          setJobStatus(data.status);
+          setProgress(data.progress || 0);
+          if (data.status === 'Completed') {
+            clearInterval(interval);
+            fetchResults(jobId, 1);
+            loadJobsAndHistory();
+          } else if (data.status === 'Failed') {
+            clearInterval(interval);
+            if (data.error) alert(`Discovery Error: ${data.error}`);
+          }
+        }
+      } catch (e) {
+        console.error("Error polling job status", e);
       }
     }, 3000);
     return () => clearInterval(interval);
@@ -479,14 +488,21 @@ export default function BusinessDiscoveryPage() {
     try {
       const res = await fetch(`/api/businesses?${params.toString()}`);
       const data = await res.json();
-      if (data.data) {
+      if (Array.isArray(data.data)) {
         setBusinesses(data.data);
         setTotalResults(data.pagination?.total || 0);
         setCurrentPage(data.pagination?.page || 1);
         setTotalPages(data.pagination?.totalPages || 1);
+      } else {
+        setBusinesses([]);
+        setTotalResults(0);
+        setCurrentPage(1);
+        setTotalPages(1);
       }
     } catch (e) {
       console.error(e);
+      setBusinesses([]);
+      setTotalResults(0);
     } finally {
       setResultsLoading(false);
     }

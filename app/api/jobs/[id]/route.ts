@@ -313,7 +313,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
     } catch (error: any) {
         console.error('Failed to poll job:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ status: 'Failed', progress: 0, error: error.message }, { status: 500 });
     }
 }
 
