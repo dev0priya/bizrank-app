@@ -1,3 +1,4 @@
+/* global globalThis */
 // Polyfill missing Node.js/Web globals in Cloudflare Workers before OpenNext bundle evaluates
 if (typeof globalThis.MessagePort === 'undefined') {
   globalThis.MessagePort = class MessagePort {};

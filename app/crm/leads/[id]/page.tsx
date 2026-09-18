@@ -754,6 +754,23 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
                             Email unavailable
                         </button>
                     )}
+
+                    {business.google_maps_url ? (
+                        <a 
+                            href={business.google_maps_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="btn-icon" 
+                            style={{ padding: '8px 16px', fontSize: '13px', textDecoration: 'none' }}
+                            title="Open exact listing in Google Maps"
+                        >
+                            <MapPin size={14} /> Open in Maps
+                        </a>
+                    ) : (
+                        <button disabled className="btn-icon" style={{ padding: '8px 16px', fontSize: '13px', opacity: 0.5, cursor: 'not-allowed' }} title="Exact Google Maps listing unavailable">
+                            <MapPin size={14} /> Maps unavailable
+                        </button>
+                    )}
                 </div>
             </div>
 

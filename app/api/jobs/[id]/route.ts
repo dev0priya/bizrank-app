@@ -6,7 +6,7 @@ import { DataProcessor } from '../../../../services/processor';
 import { WebsiteAuditor } from '../../../../services/auditor';
 import { OpportunityScorer } from '../../../../services/opportunityScorer';
 import { normalizeCategoryName } from '../../../../services/categoryNormalizer';
-import { resolveGoogleMapsUrl } from '../../../../services/businessLinks';
+import { extractPlaceId, resolveGoogleMapsUrl, validateGoogleMapsUrl } from '../../../../services/businessLinks';
 import type { WebsiteStatus } from '../../../../config/opportunityConfig';
 
 export const dynamic = 'force-dynamic';
@@ -140,13 +140,14 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 const areaId = job.areaId || null;
                 const districtId = job.districtId || null;
 
+                const resolvedPlaceId = biz.place_id || extractPlaceId(biz.google_maps_url) || null;
                 const googleMapsUrl = resolveGoogleMapsUrl({
                     provider: biz.provider || job.provider || 'apify',
-                    placeId: biz.place_id,
+                    placeId: resolvedPlaceId,
                     googleMapsUri: biz.google_maps_url,
                     placeName: biz.business_name,
                     address: biz.full_address
-                }) || biz.google_maps_url;
+                });
 
                 // Determine website status correctly for all providers
                 let websiteStatus: WebsiteStatus = 'UNKNOWN';
@@ -201,7 +202,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
                 const data = {
                     provider: biz.provider || job.provider || 'apify',
-                    place_id: biz.place_id,
+                    place_id: resolvedPlaceId,
                     business_name: biz.business_name,
                     category_id: categoryId,
                     google_category: biz.google_category || biz.category,
@@ -239,9 +240,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 };
 
                 // Deduplicate using place_id or google_maps_url
-                if (biz.place_id) {
+                if (resolvedPlaceId) {
                     await prisma.business.upsert({
-                        where: { place_id: biz.place_id },
+                        where: { place_id: resolvedPlaceId },
                         update: {
                             provider: biz.provider || job.provider || 'apify',
                             job_id: job.id,
@@ -278,9 +279,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                         },
                         create: data
                     });
-                } else if (googleMapsUrl || biz.google_maps_url) {
-                    const targetMapsUrl = googleMapsUrl || biz.google_maps_url;
-                    // Fallback composite or google maps url
+                } else if (googleMapsUrl) {
+                    const targetMapsUrl = googleMapsUrl;
                     const existing = await prisma.business.findFirst({ where: { google_maps_url: targetMapsUrl } });
                     if (!existing) {
                         await prisma.business.create({ data });

@@ -228,19 +228,20 @@ export async function POST(request: Request) {
             // Check for other duplicate business records in the database that are already in the CRM
             const duplicateConditions: any[] = [];
             const trimmedPlaceId = business.place_id?.trim();
+            const trimmedMapsUrl = business.google_maps_url?.trim();
+
             if (trimmedPlaceId) {
+                // When a canonical place_id exists, deduplicate STRICTLY by place_id
                 duplicateConditions.push({ place_id: trimmedPlaceId });
-            }
-            const trimmedPhone = business.phone_number?.trim();
-            if (trimmedPhone) {
-                duplicateConditions.push({ phone_number: trimmedPhone });
-            }
-            const trimmedName = business.business_name?.trim();
-            if (trimmedName && business.city_id) {
-                duplicateConditions.push({
-                    business_name: trimmedName,
-                    city_id: business.city_id
-                });
+            } else if (trimmedMapsUrl) {
+                // When canonical Maps URL exists without place_id, match strictly by google_maps_url
+                duplicateConditions.push({ google_maps_url: trimmedMapsUrl });
+            } else {
+                // Only when no canonical Maps identifier is present, check verified phone
+                const trimmedPhone = business.phone_number?.trim();
+                if (trimmedPhone) {
+                    duplicateConditions.push({ phone_number: trimmedPhone, place_id: null });
+                }
             }
 
             if (duplicateConditions.length > 0) {

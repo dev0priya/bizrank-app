@@ -15,6 +15,7 @@
     "test:geo": "ts-node services/test_geography_v2.ts",
     "test:opp": "ts-node services/test_opportunity_scorer.ts",
     "test:links": "ts-node services/test_business_links.ts",
+    "test:maps": "ts-node services/test_maps_accuracy.ts",
     "test:e2e": "ts-node services/verify_e2e.ts",
     "test:real": "ts-node services/test_real_discovery.ts",
     "test:all": "ts-node services/test_opportunity_scorer.ts && ts-node services/test_geography_v2.ts && ts-node services/verify_e2e.ts",

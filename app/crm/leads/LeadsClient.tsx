@@ -559,7 +559,7 @@ export default function LeadsClient({
 
                                                         {/* Maps icon link */}
                                                         {lead.business.google_maps_url && (
-                                                            <a href={lead.business.google_maps_url} target="_blank" rel="noreferrer" style={{ color: 'var(--text-muted)' }} title="Google Maps Link">
+                                                            <a href={lead.business.google_maps_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)' }} title="Google Maps Link">
                                                                 <MapPin size={12} className="hover-link" />
                                                             </a>
                                                         )}

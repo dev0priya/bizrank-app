@@ -1,4 +1,4 @@
-import { normalizeWebsiteUrl, resolveGoogleMapsUrl } from './businessLinks';
+import { extractPlaceId, normalizeWebsiteUrl, resolveGoogleMapsUrl } from './businessLinks';
 
 export interface ProcessedBusiness {
     provider: string | null;
@@ -32,12 +32,13 @@ export class DataProcessor {
             const lat = (item.location && typeof item.location.lat === 'number') ? item.location.lat : (typeof item.latitude === 'number' ? item.latitude : null);
             const lng = (item.location && typeof item.location.lng === 'number') ? item.location.lng : (typeof item.longitude === 'number' ? item.longitude : null);
             
-            const placeId = item.placeId || item.place_id || item.id || item.placeIdStr || null;
+            const rawMapsUrl = item.googleMapsUri || item.google_maps_url || item.url || item.mapsUrl || null;
+            const rawPlaceId = item.placeId || item.place_id || item.googlePlaceId || item.id || item.placeIdStr || null;
+            const placeId = rawPlaceId || extractPlaceId(rawMapsUrl) || null;
             const title = item.title || item.name || item.displayName?.text || "Unknown";
             const address = item.address || item.full_address || item.formattedAddress || item.street || null;
             const phone = item.phoneUnformatted || item.phone || item.phoneNumber || item.nationalPhoneNumber || null;
             const rawWebsite = item.website || item.websiteUri || item.domain || null;
-            const rawMapsUrl = item.googleMapsUri || item.google_maps_url || item.url || item.mapsUrl || null;
             const rating = typeof item.totalScore === 'number' ? item.totalScore : (typeof item.rating === 'number' ? item.rating : (typeof item.stars === 'number' ? item.stars : null));
             const reviewCount = typeof item.reviewsCount === 'number' ? item.reviewsCount : (typeof item.review_count === 'number' ? item.review_count : (typeof item.reviews === 'number' ? item.reviews : null));
             
@@ -58,7 +59,8 @@ export class DataProcessor {
                     provider: item.provider || 'apify',
                     placeId,
                     googleMapsUri: rawMapsUrl,
-                    placeName: title
+                    placeName: title,
+                    address
                 }),
                 rating,
                 review_count: reviewCount,
@@ -77,10 +79,12 @@ export class DataProcessor {
         
         const initialCount = processedRecords.length;
         
-        // Deduplicate based on place_id primarily, fallback to google_maps_url
+        // Deduplicate based on place_id primarily, fallback to google_maps_url, fallback to composite key
         const uniqueRecordsMap = new Map<string, ProcessedBusiness>();
         for (const record of processedRecords) {
-            const key = record.place_id ? `${record.provider || 'unknown'}:${record.place_id}` : record.google_maps_url;
+            const key = record.place_id 
+                ? `${record.provider || 'unknown'}:${record.place_id}` 
+                : (record.google_maps_url || `${record.business_name}::${record.full_address || ''}`);
             if (key && !uniqueRecordsMap.has(key)) {
                 uniqueRecordsMap.set(key, record);
             }
