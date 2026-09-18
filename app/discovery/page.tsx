@@ -11,6 +11,7 @@ import {
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SkeletonCard } from '../../components/ui/Skeleton';
+import { getBusinessMapsUrl } from '../../services/businessLinks';
 
 interface LocationSuggestion {
   id: number;
@@ -1148,35 +1149,38 @@ export default function BusinessDiscoveryPage() {
                       </button>
 
                       {/* OPEN IN GOOGLE MAPS */}
-                      {biz.google_maps_url ? (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenMaps(biz.google_maps_url)}
-                          title="Open exact listing in Google Maps"
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                            padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                            background: '#1f293d', color: '#60a5fa', border: '1px solid #283754',
-                            cursor: 'pointer', transition: 'all 0.15s'
-                          }}
-                        >
-                          <MapPin size={14} /> Open in Maps <ExternalLink size={12} />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled
-                          title="Exact Google Maps listing unavailable for this business"
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                            padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                            background: '#151b28', color: '#6b7280', border: '1px solid #1f293d',
-                            cursor: 'not-allowed', opacity: 0.6
-                          }}
-                        >
-                          <MapPin size={14} /> Maps Unavailable
-                        </button>
-                      )}
+                      {(() => {
+                        const mapsUrl = getBusinessMapsUrl(biz);
+                        return mapsUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMaps(mapsUrl)}
+                            title="Open exact listing in Google Maps"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                              padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                              background: '#1f293d', color: '#60a5fa', border: '1px solid #283754',
+                              cursor: 'pointer', transition: 'all 0.15s'
+                            }}
+                          >
+                            <MapPin size={14} /> Open in Maps <ExternalLink size={12} />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            title="Exact Google Maps listing unavailable for this business"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                              padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                              background: '#151b28', color: '#6b7280', border: '1px solid #1f293d',
+                              cursor: 'not-allowed', opacity: 0.6
+                            }}
+                          >
+                            <MapPin size={14} /> Maps Unavailable
+                          </button>
+                        );
+                      })()}
 
                       {biz.website ? (
                         <a
@@ -1628,33 +1632,36 @@ export default function BusinessDiscoveryPage() {
 
             {/* Action Buttons Row */}
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              {viewingBusiness.google_maps_url ? (
-                <button
-                  type="button"
-                  onClick={() => handleOpenMaps(viewingBusiness.google_maps_url)}
-                  title="Open exact listing in Google Maps"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 16px',
-                    borderRadius: '10px', fontSize: '13px', fontWeight: 700, background: '#1f293d',
-                    color: '#60a5fa', border: '1px solid #283754', cursor: 'pointer', transition: 'all 0.15s'
-                  }}
-                >
-                  <MapPin size={15} /> Open in Google Maps <ExternalLink size={13} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  title="Exact Google Maps listing unavailable for this business"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 16px',
-                    borderRadius: '10px', fontSize: '13px', fontWeight: 700, background: '#151b28',
-                    color: '#6b7280', border: '1px solid #1f293d', cursor: 'not-allowed', opacity: 0.6
-                  }}
-                >
-                  <MapPin size={15} /> Maps Unavailable
-                </button>
-              )}
+              {(() => {
+                const mapsUrl = getBusinessMapsUrl(viewingBusiness);
+                return mapsUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenMaps(mapsUrl)}
+                    title="Open exact listing in Google Maps"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 16px',
+                      borderRadius: '10px', fontSize: '13px', fontWeight: 700, background: '#1f293d',
+                      color: '#60a5fa', border: '1px solid #283754', cursor: 'pointer', transition: 'all 0.15s'
+                    }}
+                  >
+                    <MapPin size={15} /> Open in Google Maps <ExternalLink size={13} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    title="Exact Google Maps listing unavailable for this business"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 16px',
+                      borderRadius: '10px', fontSize: '13px', fontWeight: 700, background: '#151b28',
+                      color: '#6b7280', border: '1px solid #1f293d', cursor: 'not-allowed', opacity: 0.6
+                    }}
+                  >
+                    <MapPin size={15} /> Maps Unavailable
+                  </button>
+                );
+              })()}
 
               {!viewingBusiness.crm_lead ? (
                 <button

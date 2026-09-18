@@ -10,6 +10,7 @@ import {
     AlertCircle, Edit, Trash2, Plus, Calendar,
     ShieldAlert, Award, Loader2, DollarSign, ExternalLink, X
 } from 'lucide-react';
+import { getBusinessMapsUrl } from '../../../../services/businessLinks';
 
 export default function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
@@ -755,22 +756,25 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
                         </button>
                     )}
 
-                    {business.google_maps_url ? (
-                        <a 
-                            href={business.google_maps_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="btn-icon" 
-                            style={{ padding: '8px 16px', fontSize: '13px', textDecoration: 'none' }}
-                            title="Open exact listing in Google Maps"
-                        >
-                            <MapPin size={14} /> Open in Maps
-                        </a>
-                    ) : (
-                        <button disabled className="btn-icon" style={{ padding: '8px 16px', fontSize: '13px', opacity: 0.5, cursor: 'not-allowed' }} title="Exact Google Maps listing unavailable">
-                            <MapPin size={14} /> Maps unavailable
-                        </button>
-                    )}
+                    {(() => {
+                        const mapsUrl = getBusinessMapsUrl(business);
+                        return mapsUrl ? (
+                            <a 
+                                href={mapsUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="btn-icon" 
+                                style={{ padding: '8px 16px', fontSize: '13px', textDecoration: 'none' }}
+                                title="Open exact listing in Google Maps"
+                            >
+                                <MapPin size={14} /> Open in Maps
+                            </a>
+                        ) : (
+                            <button disabled className="btn-icon" style={{ padding: '8px 16px', fontSize: '13px', opacity: 0.5, cursor: 'not-allowed' }} title="Exact Google Maps listing unavailable">
+                                <MapPin size={14} /> Maps unavailable
+                            </button>
+                        );
+                    })()}
                 </div>
             </div>
 

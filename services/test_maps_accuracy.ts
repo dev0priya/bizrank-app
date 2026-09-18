@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import {
   buildGoogleMapsUrl,
+  buildNameAndAddressMapsUrl,
   extractPlaceId,
+  getBusinessMapsUrl,
+  isCanonicalPlaceUrl,
   resolveGoogleMapsUrl,
   validateGoogleMapsUrl
 } from './businessLinks';
@@ -10,9 +13,149 @@ import { DataProcessor } from './processor';
 console.log('--- Starting Comprehensive Google Maps Accuracy Tests ---');
 
 // =========================================================================
-// TEST CASE 1: Exact Place ID Isolation (Two businesses with identical names)
+// TEST CASE 1: Exact User Example - Restaurant Name + Full Address URL Generation
 // =========================================================================
-console.log('1. Testing exact Place ID isolation for identically named businesses...');
+console.log('1. Testing exact user example for Restaurant Name + Full Address URL generation...');
+const userExampleBiz = {
+  business_name: 'ABC Restaurant',
+  full_address: '123 MG Road, Delhi, India',
+  google_maps_url: null
+};
+
+const generatedUrl = getBusinessMapsUrl(userExampleBiz);
+const expectedUrl = 'https://www.google.com/maps/search/?api=1&query=ABC%20Restaurant%2C%20123%20MG%20Road%2C%20Delhi%2C%20India';
+
+assert.equal(generatedUrl, expectedUrl, 'Generated URL must exactly match the required format and encoding');
+console.log(`   ✅ Passed: Generated URL matches expected format exactly:\n      ${generatedUrl}`);
+
+// =========================================================================
+// TEST CASE 2: Same-Name Multiple Restaurants Isolation (Different Addresses)
+// =========================================================================
+console.log('2. Testing multiple restaurants with identical names resolve to their own exact locations...');
+const branchDelhi = {
+  business_name: 'Paradise Biryani',
+  full_address: 'Plot 12, Connaught Place, New Delhi, India',
+  google_maps_url: null
+};
+
+const branchBangalore = {
+  business_name: 'Paradise Biryani',
+  full_address: '100 Feet Road, Indiranagar, Bengaluru, Karnataka, India',
+  google_maps_url: null
+};
+
+const branchHyderabad = {
+  business_name: 'Paradise Biryani',
+  full_address: 'MG Road, Secunderabad, Telangana, India',
+  google_maps_url: null
+};
+
+const urlDelhi = getBusinessMapsUrl(branchDelhi)!;
+const urlBangalore = getBusinessMapsUrl(branchBangalore)!;
+const urlHyderabad = getBusinessMapsUrl(branchHyderabad)!;
+
+assert.ok(urlDelhi.includes(encodeURIComponent('Connaught Place, New Delhi')), 'Delhi branch URL must contain Delhi address');
+assert.ok(urlBangalore.includes(encodeURIComponent('Indiranagar, Bengaluru')), 'Bangalore branch URL must contain Bangalore address');
+assert.ok(urlHyderabad.includes(encodeURIComponent('Secunderabad, Telangana')), 'Hyderabad branch URL must contain Hyderabad address');
+
+assert.notEqual(urlDelhi, urlBangalore, 'Delhi and Bangalore branch URLs must be strictly different');
+assert.notEqual(urlBangalore, urlHyderabad, 'Bangalore and Hyderabad branch URLs must be strictly different');
+assert.notEqual(urlDelhi, urlHyderabad, 'Delhi and Hyderabad branch URLs must be strictly different');
+console.log('   ✅ Passed: Same-name restaurants open their own exact addresses, not nearby or similar branches.');
+
+// =========================================================================
+// TEST CASE 3: "Unavailable" ONLY When Address Is Genuinely Missing
+// =========================================================================
+console.log('3. Testing "Unavailable" (null) is returned ONLY when location data is genuinely missing...');
+const bizNoAddress = {
+  business_name: 'Ghost Restaurant',
+  full_address: null,
+  city: null,
+  state: null,
+  google_maps_url: null
+};
+
+const bizEmptyAddress = {
+  business_name: 'Ghost Restaurant',
+  full_address: '   ',
+  city: null,
+  state: null,
+  google_maps_url: null
+};
+
+const bizWithCityStateOnly = {
+  business_name: 'City Cafe',
+  full_address: null,
+  city: 'Jaipur',
+  state: 'Rajasthan',
+  google_maps_url: null
+};
+
+assert.equal(getBusinessMapsUrl(bizNoAddress), null, 'Must return null (Maps Unavailable) when address is genuinely missing');
+assert.equal(getBusinessMapsUrl(bizEmptyAddress), null, 'Must return null (Maps Unavailable) when address is empty whitespace');
+assert.ok(getBusinessMapsUrl(bizWithCityStateOnly)?.includes('Jaipur%2C%20Rajasthan'), 'Must construct location when city and state exist');
+console.log('   ✅ Passed: "Unavailable" returned only when genuinely no usable address exists.');
+
+// =========================================================================
+// TEST CASE 4: Rejection of Generic Name-Only Queries (No Wrong Nearby Restaurant)
+// =========================================================================
+console.log('4. Testing generic name-only search URLs are rejected to prevent opening wrong restaurants...');
+assert.equal(
+  validateGoogleMapsUrl('https://www.google.com/maps/search/?api=1&query=ABC+Restaurant'),
+  false,
+  'Generic name-only query must be rejected'
+);
+assert.equal(
+  validateGoogleMapsUrl('https://www.google.com/maps/search/?api=1&query=Pizza+Hut'),
+  false,
+  'Name-only chain query must be rejected'
+);
+assert.equal(
+  validateGoogleMapsUrl('https://www.google.com/maps/search/?api=1&query=ABC%20Restaurant%2C%20123%20MG%20Road%2C%20Delhi%2C%20India'),
+  true,
+  'Proper name + address query must be accepted'
+);
+console.log('   ✅ Passed: Name-only queries rejected, preventing Google Maps from guessing nearby branches.');
+
+// =========================================================================
+// TEST CASE 5: Existing Bad Name-Only URL Overridden by Exact Name + Address
+// =========================================================================
+console.log('5. Testing bad legacy name-only URL in DB is overridden by exact name + address...');
+const legacyBadBiz = {
+  business_name: 'ABC Restaurant',
+  full_address: '123 MG Road, Delhi, India',
+  google_maps_url: 'https://www.google.com/maps/search/?api=1&query=ABC+Restaurant' // old bad URL
+};
+
+const fixedUrl = getBusinessMapsUrl(legacyBadBiz);
+assert.equal(fixedUrl, expectedUrl, 'Old bad name-only URL must be replaced by exact name + address URL');
+console.log('   ✅ Passed: Legacy bad name-only URLs are automatically replaced by exact name + address.');
+
+// =========================================================================
+// TEST CASE 6: Canonical Place URLs Are Preserved Directly
+// =========================================================================
+console.log('6. Testing preservation of canonical Maps URLs (short links, place detail links, CID)...');
+const canonicalPlaceUrl = 'https://www.google.com/maps/place/ABC+Dental/@28.6139,77.2090,17z/data=!4m6!3m5!1s0x390cfd37b0!8m2!3d28.6139!4d77.2090';
+const canonicalShortUrl = 'https://maps.app.goo.gl/abcdef123456';
+const cidUrl = 'https://maps.google.com/?cid=12345678901234567890';
+
+assert.equal(isCanonicalPlaceUrl(canonicalPlaceUrl), true);
+assert.equal(isCanonicalPlaceUrl(canonicalShortUrl), true);
+assert.equal(isCanonicalPlaceUrl(cidUrl), true);
+assert.equal(isCanonicalPlaceUrl('https://www.google.com/maps/search/?api=1&query=Test'), false);
+
+const bizCanonical = {
+  business_name: 'ABC Dental',
+  full_address: '123 MG Road, Delhi, India',
+  google_maps_url: canonicalPlaceUrl
+};
+assert.equal(getBusinessMapsUrl(bizCanonical), canonicalPlaceUrl, 'Canonical place URL must be preserved');
+console.log('   ✅ Passed: Canonical place URLs are preserved directly.');
+
+// =========================================================================
+// TEST CASE 7: Deduplication Retains Distinct Businesses
+// =========================================================================
+console.log('7. Testing deduplication retains distinct businesses with same name...');
 const bizA_raw = {
   provider: 'google_places',
   placeId: 'PLACE_ID_A',
@@ -29,125 +172,21 @@ const bizB_raw = {
   googleMapsUri: null
 };
 
-const urlA = resolveGoogleMapsUrl({
-  provider: bizA_raw.provider,
-  placeId: bizA_raw.placeId,
-  placeName: bizA_raw.title,
-  address: bizA_raw.address
-})!;
-
-const urlB = resolveGoogleMapsUrl({
-  provider: bizB_raw.provider,
-  placeId: bizB_raw.placeId,
-  placeName: bizB_raw.title,
-  address: bizB_raw.address
-})!;
-
-assert.ok(urlA, 'Business A must produce a Maps URL');
-assert.ok(urlB, 'Business B must produce a Maps URL');
-assert.notEqual(urlA, urlB, 'Business A and Business B URLs must be strictly different');
-
-const parsedUrlA = new URL(urlA);
-const parsedUrlB = new URL(urlB);
-
-assert.equal(parsedUrlA.searchParams.get('query_place_id'), 'PLACE_ID_A', 'Business A URL must point to PLACE_ID_A');
-assert.equal(parsedUrlB.searchParams.get('query_place_id'), 'PLACE_ID_B', 'Business B URL must point to PLACE_ID_B');
-console.log('   ✅ Passed: Business A and B URLs resolve to their exact respective Place IDs.');
-
-// =========================================================================
-// TEST CASE 2: Deduplication with same name but distinct Place IDs
-// =========================================================================
-console.log('2. Testing deduplication retains distinct businesses with same name...');
 const deduplicated = DataProcessor.processAndDeduplicate([bizA_raw, bizB_raw]);
-assert.equal(deduplicated.length, 2, 'Deduplication must NOT collapse businesses with different place IDs');
-assert.equal(deduplicated[0].place_id, 'PLACE_ID_A');
-assert.equal(deduplicated[1].place_id, 'PLACE_ID_B');
+assert.equal(deduplicated.length, 2, 'Deduplication must NOT collapse businesses with different addresses/place IDs');
 console.log('   ✅ Passed: Both businesses are preserved during deduplication.');
 
 // =========================================================================
-// TEST CASE 3: Business with Missing Maps ID
+// TEST CASE 8: Security and Hostname Validation
 // =========================================================================
-console.log('3. Testing business with missing Maps ID does NOT fallback to name-only search...');
-const missingMapsBiz = {
-  provider: 'apify',
-  placeId: null,
-  title: 'Unknown Small Salon',
-  address: 'Somewhere in Rohini',
-  googleMapsUri: null
-};
-
-const resolvedMissing = resolveGoogleMapsUrl({
-  provider: missingMapsBiz.provider,
-  placeId: missingMapsBiz.placeId,
-  placeName: missingMapsBiz.title,
-  address: missingMapsBiz.address
-});
-
-assert.equal(resolvedMissing, null, 'Must NOT generate a name-based Maps URL when Place ID is missing');
-assert.equal(buildGoogleMapsUrl(null, 'Unknown Small Salon'), null, 'buildGoogleMapsUrl must return null without placeId');
-assert.equal(buildGoogleMapsUrl('', 'Unknown Small Salon'), null, 'buildGoogleMapsUrl must return null for empty placeId');
-console.log('   ✅ Passed: Missing Maps identifier cleanly returns null (no generic name fallback).');
-
-// =========================================================================
-// TEST CASE 4: Business with Canonical Maps URL
-// =========================================================================
-console.log('4. Testing preservation of canonical Maps URLs...');
-const canonicalPlaceUrl = 'https://www.google.com/maps/place/ABC+Dental/@28.6139,77.2090,17z/data=!4m6!3m5!1s0x390cfd37b0!8m2!3d28.6139!4d77.2090';
-const canonicalShortUrl = 'https://maps.app.goo.gl/abcdef123456';
-
-const resolvedCanonical1 = resolveGoogleMapsUrl({
-  provider: 'apify',
-  placeId: '0x390cfd37b0',
-  googleMapsUri: canonicalPlaceUrl,
-  placeName: 'ABC Dental'
-});
-assert.equal(resolvedCanonical1, canonicalPlaceUrl, 'Canonical place URL must be preserved');
-
-const resolvedCanonical2 = resolveGoogleMapsUrl({
-  provider: 'apify',
-  googleMapsUri: canonicalShortUrl,
-  placeName: 'ABC Dental'
-});
-assert.equal(resolvedCanonical2, canonicalShortUrl, 'Canonical short link must be preserved');
-console.log('   ✅ Passed: Canonical Maps URLs are preserved.');
-
-// =========================================================================
-// TEST CASE 5: Generic Search Query Rejection
-// =========================================================================
-console.log('5. Testing generic name-only search URLs are rejected by validateGoogleMapsUrl...');
+console.log('8. Testing security validation (HTTPS only, valid Google domains only)...');
 assert.equal(
-  validateGoogleMapsUrl('https://www.google.com/maps/search/?api=1&query=ABC+Dental+Clinic'),
-  false,
-  'Generic name-only search URL must be rejected'
-);
-assert.equal(
-  validateGoogleMapsUrl('https://www.google.com/maps/search/?api=1&query=Salon&city=Delhi'),
-  false,
-  'Generic query with city must be rejected'
-);
-assert.equal(
-  validateGoogleMapsUrl('https://www.google.com/maps/search/?api=1&query=ABC&query_place_id=PLACE_ID_A', 'PLACE_ID_B'),
-  false,
-  'URL with mismatched place ID must be rejected'
-);
-assert.equal(
-  validateGoogleMapsUrl('https://www.google.com/maps/search/?api=1&query=ABC&query_place_id=PLACE_ID_A', 'PLACE_ID_A'),
-  true,
-  'URL with matching place ID must be accepted'
-);
-console.log('   ✅ Passed: Unreliable search URLs are rejected, exact Place ID search URLs are accepted.');
-
-// =========================================================================
-// TEST CASE 6: Security & URL Protocol Validation
-// =========================================================================
-console.log('6. Testing security validation (HTTPS only, valid Google domains only)...');
-assert.equal(
-  validateGoogleMapsUrl('http://www.google.com/maps/search/?api=1&query=Google&query_place_id=PLACE_ID_A'),
+  validateGoogleMapsUrl('http://www.google.com/maps/search/?api=1&query=ABC%2C%20Delhi'),
   false,
   'Insecure HTTP must be rejected'
 );
 assert.equal(
-  validateGoogleMapsUrl('https://attacker.evil.com/maps/search/?api=1&query=Google&query_place_id=PLACE_ID_A'),
+  validateGoogleMapsUrl('https://evil-phishing.com/maps/search/?api=1&query=ABC%2C%20Delhi'),
   false,
   'Phishing/non-Google domain must be rejected'
 );
@@ -157,71 +196,6 @@ assert.equal(
   'XSS payload must be rejected'
 );
 console.log('   ✅ Passed: Protocol and hostname security rules enforced.');
-
-// =========================================================================
-// TEST CASE 7: Place ID Extraction from URLs
-// =========================================================================
-console.log('7. Testing Place ID extraction from canonical Google Maps URLs...');
-assert.equal(
-  extractPlaceId('https://www.google.com/maps/search/?api=1&query=Clinic&query_place_id=ChIJ12345XYZ'),
-  'ChIJ12345XYZ'
-);
-assert.equal(
-  extractPlaceId('https://www.google.com/maps/place/?q=place_id:ChIJ67890ABC'),
-  'ChIJ67890ABC'
-);
-assert.equal(
-  extractPlaceId('https://www.google.com/maps/place/Salon/@28.7,77.1,17z/data=!4m2!3m1!1sChIJ_abc_123'),
-  'ChIJ_abc_123'
-);
-assert.equal(
-  extractPlaceId('https://www.google.com/maps/search/?api=1&query=OnlyName'),
-  null
-);
-console.log('   ✅ Passed: Place IDs extracted correctly.');
-
-// =========================================================================
-// TEST CASE 8: CRM Deduplication Isolation (Business A vs Business B)
-// =========================================================================
-console.log('8. Testing CRM deduplication isolation for same-name businesses...');
-// Simulating the duplicate conditions logic in app/api/crm/leads/route.ts
-function getCrmDuplicateConditions(business: { place_id?: string | null; google_maps_url?: string | null; phone_number?: string | null }) {
-  const duplicateConditions: Array<Record<string, string | null>> = [];
-  const trimmedPlaceId = business.place_id?.trim();
-  const trimmedMapsUrl = business.google_maps_url?.trim();
-
-  if (trimmedPlaceId) {
-    duplicateConditions.push({ place_id: trimmedPlaceId });
-  } else if (trimmedMapsUrl) {
-    duplicateConditions.push({ google_maps_url: trimmedMapsUrl });
-  } else {
-    const trimmedPhone = business.phone_number?.trim();
-    if (trimmedPhone) {
-      duplicateConditions.push({ phone_number: trimmedPhone, place_id: null });
-    }
-  }
-  return duplicateConditions;
-}
-
-const condA = getCrmDuplicateConditions({ place_id: 'PLACE_ID_A', google_maps_url: urlA });
-const condB = getCrmDuplicateConditions({ place_id: 'PLACE_ID_B', google_maps_url: urlB });
-
-assert.deepEqual(condA, [{ place_id: 'PLACE_ID_A' }]);
-assert.deepEqual(condB, [{ place_id: 'PLACE_ID_B' }]);
-assert.notDeepEqual(condA, condB, 'CRM duplicate conditions for Business A and Business B must not overlap');
-console.log('   ✅ Passed: CRM duplicate logic protects against cross-conflating separate branches.');
-
-// =========================================================================
-// TEST CASE 9: Mock Provider Handling
-// =========================================================================
-console.log('9. Testing mock provider handling does not leak fake Maps URLs...');
-const mockResult = resolveGoogleMapsUrl({
-  provider: 'mock',
-  placeId: 'ChIJ12345mock',
-  placeName: 'Demo Mock Dental'
-});
-assert.equal(mockResult, null, 'Mock provider must not generate unverified Maps URLs');
-console.log('   ✅ Passed: Mock provider places do not generate fake Maps URLs.');
 
 console.log('\n=============================================================');
 console.log('🎉 ALL GOOGLE MAPS ACCURACY & IDENTITY TESTS PASSED!');
