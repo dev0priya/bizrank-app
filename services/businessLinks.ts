@@ -233,15 +233,15 @@ export function getBusinessMapsUrl(business?: {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}&query_place_id=${encodeURIComponent(rawPlaceId)}`;
   }
 
-  // 3. THIRD PRIORITY: Existing valid search URL (must already contain name + address details, comma-separated)
-  if (rawMapsUrl && validateGoogleMapsUrl(rawMapsUrl, rawPlaceId)) {
-    return rawMapsUrl;
-  }
-
-  // 4. FOURTH PRIORITY: Exact Name + Complete Address + City
+  // 3. THIRD PRIORITY: Exact Name + Complete Address + City
   if (name && name.toLowerCase() !== 'unknown' && completeAddress) {
     const query = `${name}, ${completeAddress}`;
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
+  // 4. FOURTH PRIORITY: Existing valid search URL (must already contain name + address details, comma-separated)
+  if (rawMapsUrl && validateGoogleMapsUrl(rawMapsUrl, rawPlaceId)) {
+    return rawMapsUrl;
   }
 
   // 5. If only complete address is available

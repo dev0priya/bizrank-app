@@ -56,6 +56,8 @@ interface BusinessResult {
   opportunity_score?: number;
   opportunity_level?: string;
   google_maps_url?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   category?: { name: string };
   city?: { name: string };
   state?: { name: string };
@@ -185,6 +187,8 @@ export default function BusinessDiscoveryPage() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [resultsLoading, setResultsLoading] = useState<boolean>(false);
+  const [selectedJobRecord, setSelectedJobRecord] = useState<JobRecord | null>(null);
+  const resultsSectionRef = useRef<HTMLDivElement>(null);
 
   // Jobs & Recent Search lists
   const [discoveryJobs, setDiscoveryJobs] = useState<JobRecord[]>([]);
@@ -476,6 +480,9 @@ export default function BusinessDiscoveryPage() {
             clearInterval(interval);
             fetchResults(jobId, 1);
             loadJobsAndHistory();
+            setTimeout(() => {
+              resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 200);
           } else if (data.status === 'Failed') {
             clearInterval(interval);
             if (data.error) alert(`Discovery Error: ${data.error}`);
@@ -488,7 +495,7 @@ export default function BusinessDiscoveryPage() {
     return () => clearInterval(interval);
   }, [jobId, jobStatus]);
 
-  const fetchResults = async (targetJobId: number, page: number) => {
+  const fetchResults = async (targetJobId: number, page: number, clearFilters: boolean = false) => {
     setResultsLoading(true);
     const params = new URLSearchParams({
       jobId: String(targetJobId),
@@ -496,13 +503,15 @@ export default function BusinessDiscoveryPage() {
       limit: '20',
       sort: sortBy,
     });
-    if (websiteFilter && websiteFilter !== 'all') params.set('websiteStatus', websiteFilter);
-    if (phoneFilter === 'available') params.set('hasPhone', 'true');
-    if (opportunityFilter && opportunityFilter !== 'all') params.set('opportunityLevel', opportunityFilter);
-    if (minRating) params.set('minRating', minRating);
-    if (maxRating) params.set('maxRating', maxRating);
-    if (minReviews) params.set('minReviews', minReviews);
-    if (maxReviews) params.set('maxReviews', maxReviews);
+    if (!clearFilters) {
+      if (websiteFilter && websiteFilter !== 'all') params.set('websiteStatus', websiteFilter);
+      if (phoneFilter === 'available') params.set('hasPhone', 'true');
+      if (opportunityFilter && opportunityFilter !== 'all') params.set('opportunityLevel', opportunityFilter);
+      if (minRating) params.set('minRating', minRating);
+      if (maxRating) params.set('maxRating', maxRating);
+      if (minReviews) params.set('minReviews', minReviews);
+      if (maxReviews) params.set('maxReviews', maxReviews);
+    }
 
     try {
       const res = await fetch(`/api/businesses?${params.toString()}`);
@@ -527,10 +536,44 @@ export default function BusinessDiscoveryPage() {
     }
   };
 
-  const handleSelectJobResults = (targetJobId: number) => {
-    setJobId(targetJobId);
-    setJobStatus('Completed');
-    fetchResults(targetJobId, 1);
+  const handleSelectJobResults = (targetJob: JobRecord | number) => {
+    const jobRecord = typeof targetJob === 'number'
+      ? discoveryJobs.find(j => j.id === targetJob) || { id: targetJob, status: 'Completed', query: `Job #${targetJob}`, provider: 'apify', progress: 100, total: 0, createdAt: '' }
+      : targetJob;
+
+    setJobId(jobRecord.id);
+    setSelectedJobRecord(jobRecord);
+
+    // Reset filters so that all results for this job are initially visible
+    setWebsiteFilter('all');
+    setPhoneFilter('all');
+    setOpportunityFilter('all');
+    setMinRating('');
+    setMaxRating('');
+    setMinReviews('');
+    setMaxReviews('');
+
+    if (jobRecord.status === 'Running' || jobRecord.status === 'Pending') {
+      setJobStatus('Running');
+      setStartTime(Date.now());
+      setElapsedTime(0);
+    } else {
+      setJobStatus(jobRecord.status || 'Completed');
+      fetchResults(jobRecord.id, 1, true);
+    }
+
+    setTimeout(() => {
+      resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (!jobId || newPage < 1 || newPage > totalPages || resultsLoading) return;
+    setCurrentPage(newPage);
+    fetchResults(jobId, newPage);
+    setTimeout(() => {
+      resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
   };
 
   const handleAddToCRM = async (businessId: number) => {
@@ -1088,172 +1131,302 @@ export default function BusinessDiscoveryPage() {
           )}
 
           {/* STEP 4: BUSINESS RESULTS SECTION */}
-          {businesses.length > 0 && (
-            <div style={{ background: '#111827', border: '1px solid #1f293d', borderRadius: '16px', padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          {(jobId !== null || businesses.length > 0 || resultsLoading) && (
+            <div ref={resultsSectionRef} style={{ background: '#111827', border: '1px solid #1f293d', borderRadius: '16px', padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Sparkles size={20} color="#3b82f6" />
                     Discovered Business Opportunities ({totalResults})
                   </h3>
-                  <p style={{ fontSize: '13px', color: '#9ca3af', margin: '2px 0 0 0' }}>
-                    Showing page {currentPage} of {totalPages}
+                  <p style={{ fontSize: '13px', color: '#9ca3af', margin: '3px 0 0 0' }}>
+                    {selectedJobRecord ? (
+                      <span>Viewing results for <strong>Job #{jobId}</strong> · {selectedJobRecord.query}</span>
+                    ) : jobId ? (
+                      <span>Viewing results for <strong>Job #{jobId}</strong></span>
+                    ) : (
+                      <span>Discovered real business listings</span>
+                    )}
+                    {totalPages > 1 && ` · Page ${currentPage} of ${totalPages}`}
                   </p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => {
+                      setWebsiteFilter('all');
+                      setPhoneFilter('all');
+                      setOpportunityFilter('all');
+                      setMinRating('');
+                      setMaxRating('');
+                      setMinReviews('');
+                      setMaxReviews('');
+                      if (jobId) fetchResults(jobId, 1, true);
+                    }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                      background: '#162032', color: '#9ca3af', border: '1px solid #283754', cursor: 'pointer'
+                    }}
+                  >
+                    <RotateCcw size={13} /> Reset Filters
+                  </button>
+                  <button
+                    onClick={() => {
+                      setJobId(null);
+                      setSelectedJobRecord(null);
+                      setBusinesses([]);
+                      setTotalResults(0);
+                    }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '4px',
+                      padding: '6px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                      background: '#162032', color: '#9ca3af', border: '1px solid #283754', cursor: 'pointer'
+                    }}
+                    title="Close results view"
+                  >
+                    <X size={14} /> Close
+                  </button>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {businesses.map(biz => (
-                  <div
-                    key={biz.id}
+              {/* LOADING STATE */}
+              {resultsLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '16px' }}>
+                  <Loader2 size={36} color="#3b82f6" className="animate-spin" />
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#ffffff' }}>
+                      Fetching Discovered Businesses...
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#9ca3af', marginTop: '4px' }}>
+                      Loading real verified records for Job #{jobId}
+                    </div>
+                  </div>
+                </div>
+              ) : businesses.length === 0 ? (
+                /* EMPTY STATE */
+                <div style={{
+                  textAlign: 'center', padding: '48px 24px', background: '#162032',
+                  borderRadius: '12px', border: '1px dashed #283754'
+                }}>
+                  <AlertCircle size={36} color="#f59e0b" style={{ margin: '0 auto 12px auto' }} />
+                  <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+                    No Businesses Found for Job #{jobId}
+                  </h4>
+                  <p style={{ fontSize: '13px', color: '#9ca3af', margin: '8px auto 20px auto', maxWidth: '440px', lineHeight: 1.5 }}>
+                    {websiteFilter !== 'all' || phoneFilter !== 'all' || opportunityFilter !== 'all' || minRating || maxRating
+                      ? "Some or all businesses in this job were excluded by your active filter settings."
+                      : "The scraper found 0 businesses matching the selected category and location. Try searching a broader area or related category."}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setWebsiteFilter('all');
+                      setPhoneFilter('all');
+                      setOpportunityFilter('all');
+                      setMinRating('');
+                      setMaxRating('');
+                      setMinReviews('');
+                      setMaxReviews('');
+                      if (jobId) fetchResults(jobId, 1, true);
+                    }}
                     style={{
-                      background: '#162032', border: '1px solid #283754', borderRadius: '12px',
-                      padding: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      gap: '16px'
+                      padding: '9px 18px', borderRadius: '8px', background: '#2563eb', color: '#ffffff',
+                      border: 'none', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: '6px'
                     }}
                   >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                        <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff', margin: 0 }}>{biz.business_name}</h4>
-                        <OpportunityBadge level={biz.opportunity_level} score={biz.opportunity_score} />
-                        {biz.crm_lead?.assignedTo && (
-                          <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(52,211,153,0.15)', color: '#34d399', padding: '3px 8px', borderRadius: '6px' }}>
-                            Assigned to: {biz.crm_lead.assignedTo}
-                          </span>
-                        )}
+                    <RotateCcw size={14} /> Clear All Filters & Show Results
+                  </button>
+                </div>
+              ) : (
+                /* BUSINESSES LIST */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {businesses.map(biz => (
+                    <div
+                      key={biz.id}
+                      style={{
+                        background: '#162032', border: '1px solid #283754', borderRadius: '12px',
+                        padding: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        gap: '16px'
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                          <h4 style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff', margin: 0 }}>{biz.business_name}</h4>
+                          <OpportunityBadge level={biz.opportunity_level} score={biz.opportunity_score} />
+                          {biz.crm_lead?.assignedTo && (
+                            <span style={{ fontSize: '11px', fontWeight: 700, background: 'rgba(52,211,153,0.15)', color: '#34d399', padding: '3px 8px', borderRadius: '6px' }}>
+                              Assigned to: {biz.crm_lead.assignedTo}
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '13px', color: '#9ca3af' }}>
+                          {biz.category && <span>📁 {biz.category.name}</span>}
+                          {biz.full_address && <span>📍 {biz.full_address}</span>}
+                          {biz.phone_number && <span>📞 {biz.phone_number}</span>}
+                          {biz.rating && <span>⭐ {biz.rating} ({biz.review_count || 0} reviews)</span>}
+                        </div>
+
+                        <div style={{ marginTop: '10px' }}>
+                          <WebsiteBadge status={biz.website_status} />
+                        </div>
                       </div>
-                      
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '13px', color: '#9ca3af' }}>
-                        {biz.category && <span>📁 {biz.category.name}</span>}
-                        {biz.full_address && <span>📍 {biz.full_address}</span>}
-                        {biz.phone_number && <span>📞 {biz.phone_number}</span>}
-                        {biz.rating && <span>⭐ {biz.rating} ({biz.review_count || 0} reviews)</span>}
-                      </div>
 
-                      <div style={{ marginTop: '10px' }}>
-                        <WebsiteBadge status={biz.website_status} />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '170px' }}>
-                      {/* VIEW RESULT BUTTON */}
-                      <button
-                        onClick={() => setViewingBusiness(biz)}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                          padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                          background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.35)',
-                          cursor: 'pointer', transition: 'all 0.15s'
-                        }}
-                      >
-                        <Eye size={14} /> View Result
-                      </button>
-
-                      {/* OPEN IN GOOGLE MAPS */}
-                      {(() => {
-                        const mapsUrl = getBusinessMapsUrl(biz);
-                        return mapsUrl ? (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenMaps(mapsUrl)}
-                            title="Open exact listing in Google Maps"
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                              padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                              background: '#1f293d', color: '#60a5fa', border: '1px solid #283754',
-                              cursor: 'pointer', transition: 'all 0.15s'
-                            }}
-                          >
-                            <MapPin size={14} /> Open in Maps <ExternalLink size={12} />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled
-                            title="Exact Google Maps listing unavailable for this business"
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                              padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                              background: '#151b28', color: '#6b7280', border: '1px solid #1f293d',
-                              cursor: 'not-allowed', opacity: 0.6
-                            }}
-                          >
-                            <MapPin size={14} /> Maps Unavailable
-                          </button>
-                        );
-                      })()}
-
-                      {biz.website ? (
-                        <a
-                          href={biz.website}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '170px' }}>
+                        {/* VIEW RESULT BUTTON */}
+                        <button
+                          onClick={() => setViewingBusiness(biz)}
                           style={{
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                             padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                            background: '#1f293d', color: '#34d399', textDecoration: 'none', border: '1px solid #283754'
+                            background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.35)',
+                            cursor: 'pointer', transition: 'all 0.15s'
                           }}
                         >
-                          <Globe size={14} /> Official Website <ExternalLink size={12} />
-                        </a>
-                      ) : (
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#ef4444', textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '6px', borderRadius: '6px' }}>
-                          No verified website
-                        </span>
-                      )}
+                          <Eye size={14} /> View Result
+                        </button>
 
-                      {!biz.crm_lead ? (
-                        <>
-                          <button
-                            onClick={() => handleAddToCRM(biz.id)}
-                            disabled={addingToCrmId === biz.id}
+                        {/* OPEN IN GOOGLE MAPS */}
+                        {(() => {
+                          const mapsUrl = getBusinessMapsUrl(biz);
+                          return mapsUrl ? (
+                            <a
+                              href={mapsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open exact listing in Google Maps"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                                background: '#1f293d', color: '#60a5fa', border: '1px solid #283754',
+                                textDecoration: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                              }}
+                            >
+                              <MapPin size={14} /> Open in Maps <ExternalLink size={12} />
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              title="Exact Google Maps listing unavailable for this business"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                                background: '#151b28', color: '#6b7280', border: '1px solid #1f293d',
+                                cursor: 'not-allowed', opacity: 0.6
+                              }}
+                            >
+                              <MapPin size={14} /> Maps Unavailable
+                            </button>
+                          );
+                        })()}
+
+                        {biz.website ? (
+                          <a
+                            href={biz.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             style={{
                               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                               padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                              background: '#2563eb', color: '#ffffff', border: 'none',
-                              cursor: addingToCrmId === biz.id ? 'not-allowed' : 'pointer',
-                              opacity: addingToCrmId === biz.id ? 0.75 : 1
+                              background: '#1f293d', color: '#34d399', textDecoration: 'none', border: '1px solid #283754'
                             }}
                           >
-                            {addingToCrmId === biz.id ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <Plus size={14} />
-                            )}
-                            {addingToCrmId === biz.id ? 'Adding...' : 'Add to CRM'}
-                          </button>
-                          <button
-                            onClick={() => handleAssignClick(biz)}
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                              padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                              background: '#1f293d', color: '#60a5fa', border: '1px solid #283754', cursor: 'pointer'
-                            }}
-                          >
-                            Assign
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <span style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#10b981', padding: '8px', background: 'rgba(16,185,129,0.1)', borderRadius: '8px' }}>
-                            ✓ In CRM
+                            <Globe size={14} /> Official Website <ExternalLink size={12} />
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#ef4444', textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '6px', borderRadius: '6px' }}>
+                            No verified website
                           </span>
-                          <button
-                            onClick={() => handleAssignClick(biz)}
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                              padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                              background: '#1f293d', color: biz.crm_lead.assignedTo ? '#34d399' : '#60a5fa',
-                              border: '1px solid #283754', cursor: 'pointer'
-                            }}
-                          >
-                            {biz.crm_lead.assignedTo ? `Reassign` : `Assign`}
-                          </button>
-                        </>
-                      )}
+                        )}
+
+                        {!biz.crm_lead ? (
+                          <>
+                            <button
+                              onClick={() => handleAddToCRM(biz.id)}
+                              disabled={addingToCrmId === biz.id}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                                background: '#2563eb', color: '#ffffff', border: 'none',
+                                cursor: addingToCrmId === biz.id ? 'not-allowed' : 'pointer',
+                                opacity: addingToCrmId === biz.id ? 0.75 : 1
+                              }}
+                            >
+                              {addingToCrmId === biz.id ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <Plus size={14} />
+                              )}
+                              {addingToCrmId === biz.id ? 'Adding...' : 'Add to CRM'}
+                            </button>
+                            <button
+                              onClick={() => handleAssignClick(biz)}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                                background: '#1f293d', color: '#60a5fa', border: '1px solid #283754', cursor: 'pointer'
+                              }}
+                            >
+                              Assign
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#10b981', padding: '8px', background: 'rgba(16,185,129,0.1)', borderRadius: '8px' }}>
+                              ✓ In CRM
+                            </span>
+                            <button
+                              onClick={() => handleAssignClick(biz)}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                                background: '#1f293d', color: biz.crm_lead.assignedTo ? '#34d399' : '#60a5fa',
+                                border: '1px solid #283754', cursor: 'pointer'
+                              }}
+                            >
+                              {biz.crm_lead.assignedTo ? `Reassign` : `Assign`}
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+
+                  {/* PAGINATION CONTROLS */}
+                  {totalPages > 1 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '16px', borderTop: '1px solid #1f293d' }}>
+                      <span style={{ fontSize: '13px', color: '#9ca3af' }}>
+                        Showing page {currentPage} of {totalPages} ({totalResults} total)
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          disabled={currentPage <= 1 || resultsLoading}
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          style={{
+                            padding: '6px 14px', borderRadius: '8px', background: '#162032',
+                            border: '1px solid #283754', color: currentPage <= 1 ? '#6b7280' : '#ffffff',
+                            cursor: currentPage <= 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600
+                          }}
+                        >
+                          ← Previous
+                        </button>
+                        <button
+                          disabled={currentPage >= totalPages || resultsLoading}
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          style={{
+                            padding: '6px 14px', borderRadius: '8px', background: '#162032',
+                            border: '1px solid #283754', color: currentPage >= totalPages ? '#6b7280' : '#ffffff',
+                            cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600
+                          }}
+                        >
+                          Next →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1266,24 +1439,54 @@ export default function BusinessDiscoveryPage() {
 
             {discoveryJobs.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {discoveryJobs.slice(0, 5).map(j => (
-                  <div key={j.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#162032', border: '1px solid #283754', borderRadius: '10px' }}>
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>
-                        Job #{j.id} · {j.query}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-                        Provider: {j.provider} · Found {j._count?.businesses ?? j.total ?? 0} businesses
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleSelectJobResults(j.id)}
-                      style={{ padding: '6px 12px', borderRadius: '6px', background: '#1f293d', color: '#60a5fa', border: '1px solid #283754', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                {discoveryJobs.slice(0, 10).map(j => {
+                  const isSelected = jobId === j.id;
+                  const isRunning = j.status === 'Running';
+                  return (
+                    <div
+                      key={j.id}
+                      style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '12px 16px', background: isSelected ? 'rgba(37,99,235,0.12)' : '#162032',
+                        border: isSelected ? '1px solid #3b82f6' : '1px solid #283754',
+                        borderRadius: '10px', transition: 'all 0.15s'
+                      }}
                     >
-                      View Results
-                    </button>
-                  </div>
-                ))}
+                      <div style={{ flex: 1, marginRight: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>
+                            Job #{j.id} · {j.query}
+                          </span>
+                          <span style={{
+                            fontSize: '10px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px',
+                            background: isRunning ? 'rgba(59,130,246,0.2)' : j.status === 'Completed' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)',
+                            color: isRunning ? '#60a5fa' : j.status === 'Completed' ? '#34d399' : '#f87171'
+                          }}>
+                            {j.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+                          Provider: {j.provider} · Found {j._count?.businesses ?? j.total ?? 0} businesses
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleSelectJobResults(j)}
+                        style={{
+                          padding: '7px 14px', borderRadius: '6px',
+                          background: isSelected ? '#2563eb' : '#1f293d',
+                          color: isSelected ? '#ffffff' : '#60a5fa',
+                          border: isSelected ? '1px solid #3b82f6' : '1px solid #283754',
+                          fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                          display: 'inline-flex', alignItems: 'center', gap: '6px',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {isSelected && !resultsLoading ? 'Viewing Results' : isRunning ? 'View Progress' : 'View Results'}
+                        <ArrowRight size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>No active or past discovery jobs found.</p>
@@ -1635,18 +1838,19 @@ export default function BusinessDiscoveryPage() {
               {(() => {
                 const mapsUrl = getBusinessMapsUrl(viewingBusiness);
                 return mapsUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenMaps(mapsUrl)}
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     title="Open exact listing in Google Maps"
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 16px',
                       borderRadius: '10px', fontSize: '13px', fontWeight: 700, background: '#1f293d',
-                      color: '#60a5fa', border: '1px solid #283754', cursor: 'pointer', transition: 'all 0.15s'
+                      color: '#60a5fa', border: '1px solid #283754', textDecoration: 'none', cursor: 'pointer', transition: 'all 0.15s'
                     }}
                   >
                     <MapPin size={15} /> Open in Google Maps <ExternalLink size={13} />
-                  </button>
+                  </a>
                 ) : (
                   <button
                     type="button"
