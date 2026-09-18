@@ -79,18 +79,71 @@ export function validateGoogleMapsUrl(value: string | null | undefined, placeId?
   return true;
 }
 
-export function isCanonicalPlaceUrl(value: string | null | undefined): boolean {
+export function isExactGoogleMapsUrl(value: string | null | undefined): boolean {
   if (!value) return false;
   const url = toUrl(value);
   if (!url || url.protocol !== 'https:') return false;
   const host = url.hostname.toLowerCase();
   if (host === 'maps.app.goo.gl' || (host === 'goo.gl' && url.pathname.startsWith('/maps'))) return true;
   if (!GOOGLE_MAPS_HOSTS.has(host) && !host.endsWith('.google.com')) return false;
+
   const path = url.pathname.toLowerCase();
-  if (path.includes('/place/') || url.searchParams.has('cid') || (path.includes('/maps') && url.searchParams.has('cid'))) {
-    return true;
-  }
+  
+  // 1. Direct place URL: /maps/place/...
+  if (path.includes('/place/')) return true;
+
+  // 2. CID URL: ?cid=...
+  if (url.searchParams.has('cid')) return true;
+
+  // 3. Search URL with explicit Place ID: query_place_id=...
+  const queryPlaceId = url.searchParams.get('query_place_id');
+  if (queryPlaceId && queryPlaceId.trim() && !queryPlaceId.includes('mock')) return true;
+
+  // 4. Place ID query: ?q=place_id:...
+  const q = url.searchParams.get('q');
+  if (q && q.includes('place_id:')) return true;
+
+  // 5. Data parameter containing place ID (!1sChIJ...)
+  if (path.match(/!1s(ChIJ[A-Za-z0-9_-]+)/)) return true;
+
   return false;
+}
+
+export function isCanonicalPlaceUrl(value: string | null | undefined): boolean {
+  return isExactGoogleMapsUrl(value);
+}
+
+export function buildCompleteAddress(business: {
+  full_address?: string | null;
+  city?: { name?: string | null } | string | null;
+  state?: { name?: string | null } | string | null;
+  area?: { name?: string | null } | string | null;
+}): string | null {
+  const cityName = (typeof business.city === 'object' ? business.city?.name : business.city)?.trim() || '';
+  const stateName = (typeof business.state === 'object' ? business.state?.name : business.state)?.trim() || '';
+  const areaName = (typeof business.area === 'object' ? business.area?.name : business.area)?.trim() || '';
+  let fullAddr = business.full_address?.trim() || '';
+
+  if (!fullAddr) {
+    const parts = [areaName, cityName, stateName].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+
+  const lowerAddr = fullAddr.toLowerCase();
+  const missingParts: string[] = [];
+
+  if (cityName && !lowerAddr.includes(cityName.toLowerCase())) {
+    missingParts.push(cityName);
+  }
+  if (stateName && !lowerAddr.includes(stateName.toLowerCase())) {
+    missingParts.push(stateName);
+  }
+
+  if (missingParts.length > 0) {
+    fullAddr = `${fullAddr}, ${missingParts.join(', ')}`;
+  }
+
+  return fullAddr;
 }
 
 export function buildGoogleMapsUrl(placeId: string | null | undefined, placeName?: string | null | undefined, address?: string | null): string | null {
@@ -126,8 +179,8 @@ export function resolveGoogleMapsUrl(input: {
     return null;
   }
 
-  // 1. Direct canonical place URL
-  if (isCanonicalPlaceUrl(input.googleMapsUri)) {
+  // 1. Direct exact/canonical place URL
+  if (isExactGoogleMapsUrl(input.googleMapsUri)) {
     return input.googleMapsUri!.trim();
   }
 
@@ -136,7 +189,7 @@ export function resolveGoogleMapsUrl(input: {
     return buildGoogleMapsUrl(input.placeId, input.placeName, input.address);
   }
 
-  // 3. Exact restaurant name + full address query
+  // 3. Exact restaurant/business name + full address query
   const cleanName = input.placeName?.trim();
   const cleanAddress = input.address?.trim();
   if (cleanName && cleanAddress && cleanName.toLowerCase() !== 'unknown') {
@@ -158,43 +211,50 @@ export function getBusinessMapsUrl(business?: {
   place_id?: string | null;
   city?: { name?: string | null } | string | null;
   state?: { name?: string | null } | string | null;
+  area?: { name?: string | null } | string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 } | null): string | null {
   if (!business) return null;
 
-  // 1. If existing data already contains a canonical Google Maps place URL (place details, shortlink, cid), use it directly
-  if (business.google_maps_url && isCanonicalPlaceUrl(business.google_maps_url)) {
-    return business.google_maps_url.trim();
-  }
-
+  const rawMapsUrl = business.google_maps_url?.trim() || null;
+  const rawPlaceId = (business.place_id?.trim() || extractPlaceId(rawMapsUrl)) || null;
   const name = business.business_name?.trim();
-  if (!name || name.toLowerCase() === 'unknown') return null;
+  const completeAddress = buildCompleteAddress(business);
 
-  // Extract address details
-  const cityName = typeof business.city === 'object' ? business.city?.name : business.city;
-  const stateName = typeof business.state === 'object' ? business.state?.name : business.state;
-
-  let address = business.full_address?.trim() || '';
-  if (!address && (cityName || stateName)) {
-    address = [cityName?.trim(), stateName?.trim()].filter(Boolean).join(', ');
-  } else if (address && cityName && !address.toLowerCase().includes(cityName.trim().toLowerCase())) {
-    address = [address, cityName.trim(), stateName?.trim()].filter(Boolean).join(', ');
+  // 1. FIRST PRIORITY: Existing exact Google Maps URL (Place URL, CID, shortlink, or query_place_id)
+  if (rawMapsUrl && isExactGoogleMapsUrl(rawMapsUrl)) {
+    return rawMapsUrl;
   }
 
-  // 2. If restaurant name + full address is available, generate exact name + address Google Maps URL
-  if (name && address) {
-    return buildNameAndAddressMapsUrl(name, address);
+  // 2. SECOND PRIORITY: Exact Place ID available
+  if (rawPlaceId && !rawPlaceId.includes('mock')) {
+    const query = [name, completeAddress].filter(Boolean).join(', ') || 'Business';
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}&query_place_id=${encodeURIComponent(rawPlaceId)}`;
   }
 
-  // 3. If valid place_id is available without address
-  if (business.place_id && business.place_id.trim() && !business.place_id.includes('mock')) {
-    return buildGoogleMapsUrl(business.place_id, name);
+  // 3. THIRD PRIORITY: Existing valid search URL (must already contain name + address details, comma-separated)
+  if (rawMapsUrl && validateGoogleMapsUrl(rawMapsUrl, rawPlaceId)) {
+    return rawMapsUrl;
   }
 
-  // 4. If existing google_maps_url is a verified valid search URL (e.g. contains query_place_id or comma address)
-  if (business.google_maps_url && validateGoogleMapsUrl(business.google_maps_url, business.place_id)) {
-    return business.google_maps_url.trim();
+  // 4. FOURTH PRIORITY: Exact Name + Complete Address + City
+  if (name && name.toLowerCase() !== 'unknown' && completeAddress) {
+    const query = `${name}, ${completeAddress}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
   }
 
-  // 5. Truly unavailable when genuinely no usable location/address data exists
+  // 5. If only complete address is available
+  if (completeAddress) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(completeAddress)}`;
+  }
+
+  // 6. Coordinates fallback if latitude and longitude exist
+  if (typeof business.latitude === 'number' && typeof business.longitude === 'number') {
+    const query = name ? `${name}, ${business.latitude},${business.longitude}` : `${business.latitude},${business.longitude}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
+  // 7. Truly unavailable ONLY when genuinely no usable location or address exists
   return null;
 }
