@@ -153,13 +153,12 @@ export class MockProvider implements BusinessProvider {
                 website = `https://www.${cleanName}${domainSuffixes[Math.floor(rand() * domainSuffixes.length)]}`;
             }
 
-            const placeId = 'ChIJ' + Math.floor(rand() * 10000000000000000).toString(16) + 'mock';
             const mockPincode = (110000 + Math.floor(rand() * 90) + 1).toString();
             const fullAddress = `${Math.floor(rand() * 150) + 1}, ${area || 'Main Market'}, ${city || 'City'}, ${state || 'State'} ${mockPincode}, India`;
 
             items.push({
                 provider: 'mock',
-                placeId,
+                placeId: null,
                 title: businessName,
                 categoryName: category,
                 address: fullAddress,

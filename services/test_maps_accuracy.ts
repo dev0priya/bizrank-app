@@ -73,7 +73,7 @@ const categoriesTestCases = [
     category: '1. Restaurant',
     biz: {
       business_name: 'Bukhara Restaurant',
-      full_address: 'ITC Maurya, Diplomatic Enclave, Sardar Patel Marg',
+      full_address: 'ITC Maurya, Diplomatic Enclave, Sardar Patel Marg, New Delhi, Delhi',
       city: 'New Delhi',
       state: 'Delhi'
     },
@@ -83,7 +83,7 @@ const categoriesTestCases = [
     category: '2. Store',
     biz: {
       business_name: 'Fabindia Store',
-      full_address: 'Connaught Place, Block C, Inner Circle',
+      full_address: 'Connaught Place, Block C, Inner Circle, New Delhi, Delhi',
       city: 'New Delhi',
       state: 'Delhi'
     },
@@ -103,7 +103,7 @@ const categoriesTestCases = [
     category: '4. Dental Clinic',
     biz: {
       business_name: 'Clove Dental Clinic',
-      full_address: 'A-23, Central Market, Lajpat Nagar II',
+      full_address: 'A-23, Central Market, Lajpat Nagar II, New Delhi, Delhi',
       city: 'New Delhi',
       state: 'Delhi'
     },
@@ -113,7 +113,7 @@ const categoriesTestCases = [
     category: '5. Gym',
     biz: {
       business_name: "Gold's Gym",
-      full_address: 'Plot 8, Sector 14',
+      full_address: 'Plot 8, Sector 14, Gurugram, Haryana',
       city: 'Gurugram',
       state: 'Haryana'
     },
@@ -123,7 +123,7 @@ const categoriesTestCases = [
     category: '6. Institute',
     biz: {
       business_name: 'FIITJEE Institute',
-      full_address: 'Sarvapriya Vihar, Kalu Sarai',
+      full_address: 'Sarvapriya Vihar, Kalu Sarai, New Delhi, Delhi',
       city: 'New Delhi',
       state: 'Delhi'
     },

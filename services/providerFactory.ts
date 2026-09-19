@@ -34,29 +34,29 @@ export class ProviderFactory {
         switch (providerType) {
             case 'apify':
                 if (apifyToken) {
-                    try {
-                        return new ApifyProvider();
-                    } catch (e) {
-                        console.warn('[ProviderFactory] ApifyProvider instantiation failed, falling back to MockProvider:', e);
-                    }
+                    return new ApifyProvider();
                 }
-                console.warn('[ProviderFactory] APIFY_API_TOKEN is not configured in environment, falling back to mock provider');
-                if (googleKey) return new GooglePlacesProvider();
-                return new MockProvider();
+                if (googleKey) {
+                    console.info('[ProviderFactory] APIFY_API_TOKEN is not configured, falling back to GooglePlacesProvider');
+                    return new GooglePlacesProvider();
+                }
+                throw new Error('APIFY_API_TOKEN is not configured. Please configure your Apify or Google Places credentials to discover real Google Maps listings.');
 
             case 'google_places':
                 if (googleKey) {
                     return new GooglePlacesProvider();
                 }
-                console.warn('[ProviderFactory] GOOGLE_MAPS_API_KEY is not configured in environment, falling back to mock provider');
-                return new MockProvider();
+                if (apifyToken) {
+                    return new ApifyProvider();
+                }
+                throw new Error('GOOGLE_MAPS_API_KEY is not configured.');
 
             case 'mock':
                 return new MockProvider();
 
             default:
                 if (apifyToken) {
-                    try { return new ApifyProvider(); } catch (e) {}
+                    return new ApifyProvider();
                 }
                 if (googleKey) return new GooglePlacesProvider();
                 return new MockProvider();

@@ -262,11 +262,13 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                     discovery_status: 'Discovered'
                 };
 
-                // Deduplicate using place_id or google_maps_url
+                // Deduplicate using place_id or canonical google_maps_url
                 if (resolvedPlaceId) {
                     await prisma.business.upsert({
                         where: { place_id: resolvedPlaceId },
                         update: {
+                            business_name: biz.business_name,
+                            owner_name: biz.owner_name,
                             provider: biz.provider || job.provider || 'apify',
                             job_id: job.id,
                             category_id: categoryId,
@@ -302,7 +304,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                         },
                         create: data
                     });
-                } else if (googleMapsUrl) {
+                } else if (googleMapsUrl && (googleMapsUrl.includes('query_place_id=') || googleMapsUrl.includes('cid=') || googleMapsUrl.includes('/place/'))) {
                     const targetMapsUrl = googleMapsUrl;
                     const existing = await prisma.business.findFirst({ where: { google_maps_url: targetMapsUrl } });
                     if (!existing) {
@@ -311,6 +313,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                         await prisma.business.update({
                             where: { id: existing.id },
                             data: {
+                                business_name: biz.business_name,
+                                owner_name: biz.owner_name,
+                                place_id: resolvedPlaceId,
                                 provider: biz.provider || job.provider || 'apify',
                                 job_id: job.id,
                                 category_id: categoryId,
@@ -336,6 +341,13 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                                 latitude: biz.latitude,
                                 longitude: biz.longitude,
                                 ai_score: aiScore,
+                                audit_mobile_responsive: biz.audit_mobile_responsive,
+                                audit_https: biz.audit_https,
+                                audit_speed_score: biz.audit_speed_score,
+                                audit_seo_score: biz.audit_seo_score,
+                                audit_ux_score: biz.audit_ux_score,
+                                audit_contact_visible: biz.audit_contact_visible,
+                                audit_booking_engine: biz.audit_booking_engine,
                             }
                         });
                     }

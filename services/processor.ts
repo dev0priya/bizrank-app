@@ -62,22 +62,16 @@ export class DataProcessor {
             }
             const state = rawState;
 
-            // Extract the exact full address from the listing
+            // Extract the exact full address from the listing verbatim
+            // NEVER mutate or append guessed components to Google Maps' own formatted address
             const rawFormattedAddress = cleanStr(item.address || item.full_address || item.formattedAddress || item.formatted_address);
             let fullAddress: string | null = null;
 
             if (rawFormattedAddress) {
+                // Exact listing address from Google Maps — preserve 100% verbatim
                 fullAddress = rawFormattedAddress;
-                // If postal code exists on listing but is missing from formatted address string, append it cleanly
-                if (rawPostalCode && !fullAddress.includes(rawPostalCode)) {
-                    if (country && fullAddress.toLowerCase().endsWith(country.toLowerCase())) {
-                        fullAddress = fullAddress.slice(0, -country.length).trim().replace(/,\s*$/, '') + ` ${rawPostalCode}, ${country}`;
-                    } else {
-                        fullAddress = `${fullAddress}, ${rawPostalCode}`;
-                    }
-                }
             } else {
-                // If no pre-formatted address string, construct strictly from listing's OWN scraped fields
+                // If no pre-formatted address string exists, construct strictly from listing's OWN scraped components
                 // NEVER inject the user's search query location
                 const parts = [street, neighborhood, city, state, rawPostalCode, country].filter(Boolean);
                 if (parts.length > 0) {
@@ -131,22 +125,27 @@ export class DataProcessor {
                 business_status: cleanStr(item.status || item.businessStatus)
             };
 
-            // Only add if it has a place_id or google_maps_url or valid title
-            if (record.place_id || record.google_maps_url || record.business_name !== "Unknown") {
+            // Must have a valid business name AND a verified place ID, canonical URL, or exact address
+            if (record.business_name && record.business_name !== "Unknown" && (record.place_id || record.google_maps_url || record.full_address)) {
                 processedRecords.push(record);
             }
         }
         
         const initialCount = processedRecords.length;
         
-        // Deduplicate based on place_id primarily, fallback to google_maps_url, fallback to composite key
+        // Deduplicate based on place_id primarily, fallback to canonical google_maps_url, fallback to composite key
         // Ensure same-name businesses at different locations are NEVER conflated or deduplicated
         const uniqueRecordsMap = new Map<string, ProcessedBusiness>();
         for (const record of processedRecords) {
+            const hasExactUrl = record.google_maps_url && (
+                record.google_maps_url.includes('query_place_id=') || 
+                record.google_maps_url.includes('cid=') || 
+                record.google_maps_url.includes('/place/')
+            );
             const key = record.place_id 
                 ? `${record.provider || 'unknown'}:${record.place_id}` 
-                : (record.google_maps_url 
-                    ? record.google_maps_url 
+                : (hasExactUrl 
+                    ? record.google_maps_url! 
                     : `${record.business_name}::${record.full_address || ''}::${record.latitude ?? ''},${record.longitude ?? ''}`);
             if (key && !uniqueRecordsMap.has(key)) {
                 uniqueRecordsMap.set(key, record);

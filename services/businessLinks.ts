@@ -121,37 +121,12 @@ export function buildCompleteAddress(business: {
 }): string | null {
   const fullAddr = business.full_address?.trim() || '';
   if (!fullAddr) {
-    // If no full_address exists, NEVER fabricate an address from search query location
+    // If no full_address exists from the scraper, NEVER fabricate an address from search query location
     return null;
   }
 
-  const cityName = (typeof business.city === 'object' ? business.city?.name : business.city)?.trim() || '';
-  const stateName = (typeof business.state === 'object' ? business.state?.name : business.state)?.trim() || '';
-  const lowerAddr = fullAddr.toLowerCase();
-
-  // If fullAddr already contains the city or state or is already a complete address (contains PIN/postal code)
-  // preserve it strictly without appending anything from search location!
-  const hasCity = cityName && lowerAddr.includes(cityName.toLowerCase());
-  const hasState = stateName && lowerAddr.includes(stateName.toLowerCase());
-  const hasPostalCode = /\b\d{5,6}\b/.test(fullAddr);
-
-  if ((hasCity && hasState) || hasPostalCode) {
-    return fullAddr;
-  }
-
-  // If fullAddr is only a street fragment without city/state, append missing listing parts if available
-  const missingParts: string[] = [];
-  if (cityName && !hasCity) {
-    missingParts.push(cityName);
-  }
-  if (stateName && !hasState) {
-    missingParts.push(stateName);
-  }
-
-  if (missingParts.length > 0) {
-    return `${fullAddr}, ${missingParts.join(', ')}`;
-  }
-
+  // The scraped full address from the listing is the true address — preserve 100% verbatim
+  // NEVER append search parameters, search city, or search state
   return fullAddr;
 }
 
@@ -242,28 +217,18 @@ export function getBusinessMapsUrl(business?: {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}&query_place_id=${encodeURIComponent(rawPlaceId)}`;
   }
 
-  // 3. THIRD PRIORITY: Exact Name + Complete Address + City
+  // 3. THIRD PRIORITY: Existing valid Maps URL from scraper (already containing query_place_id or verified details)
+  if (rawMapsUrl && validateGoogleMapsUrl(rawMapsUrl, rawPlaceId)) {
+    return rawMapsUrl;
+  }
+
+  // 4. FOURTH PRIORITY: Exact Listing Name + Exact Scraped Listing Address (only when full listing address is present)
   if (name && name.toLowerCase() !== 'unknown' && completeAddress) {
     const query = `${name}, ${completeAddress}`;
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
   }
 
-  // 4. FOURTH PRIORITY: Existing valid search URL (must already contain name + address details, comma-separated)
-  if (rawMapsUrl && validateGoogleMapsUrl(rawMapsUrl, rawPlaceId)) {
-    return rawMapsUrl;
-  }
-
-  // 5. If only complete address is available
-  if (completeAddress) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(completeAddress)}`;
-  }
-
-  // 6. Coordinates fallback if latitude and longitude exist
-  if (typeof business.latitude === 'number' && typeof business.longitude === 'number') {
-    const query = name ? `${name}, ${business.latitude},${business.longitude}` : `${business.latitude},${business.longitude}`;
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-  }
-
-  // 7. Truly unavailable ONLY when genuinely no usable location or address exists
+  // Fallback: If no exact Place ID, canonical URL, or verified address exists,
+  // do NOT generate URLs from coordinates or name alone. Return null ("Maps Unavailable").
   return null;
 }
