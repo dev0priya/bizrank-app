@@ -60,15 +60,22 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             // Fetch only the categories and relevant locations on-demand to optimize memory and speed
             const categories = await prisma.businessCategory.findMany();
             
-            const uniqueCityNames = Array.from(new Set(audited.map(biz => biz.city).filter(Boolean))) as string[];
+            const rawCityCandidates = audited.flatMap(biz => {
+                if (!biz.city) return [];
+                const parts = [biz.city.trim()];
+                if (biz.city.includes(',')) {
+                    parts.push(biz.city.split(',')[0].trim());
+                }
+                return parts;
+            });
+            const uniqueCityNames = Array.from(new Set(rawCityCandidates.filter(Boolean))) as string[];
             const uniqueStateNames = Array.from(new Set(audited.map(biz => biz.state).filter(Boolean))) as string[];
             const uniqueCountryNames = Array.from(new Set(audited.map(biz => biz.country).filter(Boolean))) as string[];
 
             const cities = uniqueCityNames.length > 0 
                 ? await prisma.city.findMany({ 
                     where: { 
-                        name: { in: uniqueCityNames },
-                        ...(job.stateId ? { stateId: job.stateId } : {})
+                        name: { in: uniqueCityNames }
                     } 
                   }) 
                 : [];
@@ -101,13 +108,28 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 return normalized ? categoryMap.get(normalized.toLowerCase()) || null : null;
             };
             const getCatId = (name: string | null) => getCatInfo(name)?.id || null;
-            const getCityId = (name: string | null) => name ? cityMap.get(name.toLowerCase()) || null : null;
+            const getCityId = (name: string | null) => {
+                if (!name) return null;
+                const lower = name.toLowerCase().trim();
+                const direct = cityMap.get(lower);
+                if (direct) return direct;
+                if (lower.includes(',')) {
+                    const firstPart = lower.split(',')[0].trim();
+                    const subDirect = cityMap.get(firstPart);
+                    if (subDirect) return subDirect;
+                }
+                return null;
+            };
             const getStateId = (name: string | null) => {
                 if (!name) return null;
                 const lower = name.toLowerCase().trim();
                 const direct = stateMap.get(lower);
                 if (direct) return direct;
                 if (lower.includes('delhi')) return stateMap.get('delhi') || null;
+                if (lower.includes('karnataka')) return stateMap.get('karnataka') || null;
+                if (lower.includes('maharashtra')) return stateMap.get('maharashtra') || null;
+                if (lower.includes('uttar pradesh') || lower === 'up') return stateMap.get('uttar pradesh') || null;
+                if (lower.includes('haryana')) return stateMap.get('haryana') || null;
                 return null;
             };
             const getCountryId = (code: string | null) => {
@@ -135,9 +157,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 }
 
                 const resolvedCityId = getCityId(biz.city);
-                const cityId = resolvedCityId || job.cityId;
+                // Only fall back to job.cityId if the resolved state matches the job's state
+                const cityId = resolvedCityId || (resolvedStateId && resolvedStateId === job.stateId ? job.cityId : null);
                 const countryId = getCountryId(biz.country) || job.countryId;
-                const areaId = job.areaId || null;
+                const areaId = (resolvedCityId && resolvedCityId === job.cityId) ? (job.areaId || null) : null;
                 const districtId = job.districtId || null;
 
                 const resolvedPlaceId = biz.place_id || extractPlaceId(biz.google_maps_url) || null;
@@ -290,6 +313,14 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                             data: {
                                 provider: biz.provider || job.provider || 'apify',
                                 job_id: job.id,
+                                category_id: categoryId,
+                                google_category: biz.google_category || biz.category,
+                                state_id: stateId,
+                                city_id: cityId,
+                                area_id: resolvedAreaId,
+                                district_id: resolvedDistrictId,
+                                country_id: countryId,
+                                full_address: biz.full_address,
                                 opportunity_score: oppScore,
                                 opportunity_level: opportunityLevel,
                                 opportunity_eligible: opportunityEligible,

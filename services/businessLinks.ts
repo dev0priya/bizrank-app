@@ -119,28 +119,37 @@ export function buildCompleteAddress(business: {
   state?: { name?: string | null } | string | null;
   area?: { name?: string | null } | string | null;
 }): string | null {
+  const fullAddr = business.full_address?.trim() || '';
+  if (!fullAddr) {
+    // If no full_address exists, NEVER fabricate an address from search query location
+    return null;
+  }
+
   const cityName = (typeof business.city === 'object' ? business.city?.name : business.city)?.trim() || '';
   const stateName = (typeof business.state === 'object' ? business.state?.name : business.state)?.trim() || '';
-  const areaName = (typeof business.area === 'object' ? business.area?.name : business.area)?.trim() || '';
-  let fullAddr = business.full_address?.trim() || '';
+  const lowerAddr = fullAddr.toLowerCase();
 
-  if (!fullAddr) {
-    const parts = [areaName, cityName, stateName].filter(Boolean);
-    return parts.length > 0 ? parts.join(', ') : null;
+  // If fullAddr already contains the city or state or is already a complete address (contains PIN/postal code)
+  // preserve it strictly without appending anything from search location!
+  const hasCity = cityName && lowerAddr.includes(cityName.toLowerCase());
+  const hasState = stateName && lowerAddr.includes(stateName.toLowerCase());
+  const hasPostalCode = /\b\d{5,6}\b/.test(fullAddr);
+
+  if ((hasCity && hasState) || hasPostalCode) {
+    return fullAddr;
   }
 
-  const lowerAddr = fullAddr.toLowerCase();
+  // If fullAddr is only a street fragment without city/state, append missing listing parts if available
   const missingParts: string[] = [];
-
-  if (cityName && !lowerAddr.includes(cityName.toLowerCase())) {
+  if (cityName && !hasCity) {
     missingParts.push(cityName);
   }
-  if (stateName && !lowerAddr.includes(stateName.toLowerCase())) {
+  if (stateName && !hasState) {
     missingParts.push(stateName);
   }
 
   if (missingParts.length > 0) {
-    fullAddr = `${fullAddr}, ${missingParts.join(', ')}`;
+    return `${fullAddr}, ${missingParts.join(', ')}`;
   }
 
   return fullAddr;

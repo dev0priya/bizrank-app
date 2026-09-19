@@ -48,11 +48,18 @@ export class MockProvider implements BusinessProvider {
     }
 
     async getDatasetItems(datasetId: string) {
-        const b64 = datasetId.replace('mock-dataset-', '');
         let params: SearchParams = {};
-        try {
-            params = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
-        } catch(e) {}
+        if (datasetId && datasetId.startsWith('mock-dataset-')) {
+            const b64 = datasetId.replace('mock-dataset-', '');
+            if (b64) {
+                try {
+                    const decoded = typeof Buffer !== 'undefined'
+                        ? Buffer.from(b64, 'base64').toString('utf8')
+                        : decodeURIComponent(escape(atob(b64)));
+                    params = JSON.parse(decoded);
+                } catch(e) {}
+            }
+        }
 
         const { country, state, district, city, area, category, maxResults = 20 } = params;
         
@@ -147,8 +154,8 @@ export class MockProvider implements BusinessProvider {
             }
 
             const placeId = 'ChIJ' + Math.floor(rand() * 10000000000000000).toString(16) + 'mock';
-
-            const fullAddress = `${Math.floor(rand() * 150) + 1}, ${area || 'Main Market'}, ${city || 'City'}, ${state || 'State'}`;
+            const mockPincode = (110000 + Math.floor(rand() * 90) + 1).toString();
+            const fullAddress = `${Math.floor(rand() * 150) + 1}, ${area || 'Main Market'}, ${city || 'City'}, ${state || 'State'} ${mockPincode}, India`;
 
             items.push({
                 provider: 'mock',
@@ -156,9 +163,11 @@ export class MockProvider implements BusinessProvider {
                 title: businessName,
                 categoryName: category,
                 address: fullAddress,
-                neighborhood: area,
-                city: city,
-                state: state,
+                street: `${Math.floor(rand() * 150) + 1}, ${area || 'Main Market'}`,
+                neighborhood: area || null,
+                city: city || null,
+                state: state || null,
+                postalCode: mockPincode,
                 countryCode: "IN",
                 phoneUnformatted: `+9198${Math.floor(rand() * 100000000).toString().padStart(8, '0')}`,
                 website: website,

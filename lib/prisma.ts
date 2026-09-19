@@ -33,23 +33,26 @@ function getD1Binding(): any {
 }
 
 export const getPrismaClient = (): PrismaClient => {
+  const globalForPrisma = globalThis as unknown as {
+    prisma: PrismaClient | undefined
+  };
+
+  if (globalForPrisma.prisma) {
+    return globalForPrisma.prisma;
+  }
+
   const d1 = getD1Binding();
   if (d1) {
     const adapter = new PrismaD1(d1);
-    return new PrismaClient({ adapter });
+    globalForPrisma.prisma = new PrismaClient({ adapter });
+    return globalForPrisma.prisma;
   }
 
   if (process.env.NODE_ENV === 'production') {
     throw new Error('D1 database binding "DB" is not available in the current environment.');
   }
 
-  const globalForPrisma = globalThis as unknown as {
-    prisma: PrismaClient | undefined
-  };
-
-  if (!globalForPrisma.prisma) {
-    globalForPrisma.prisma = new PrismaClient();
-  }
+  globalForPrisma.prisma = new PrismaClient();
   return globalForPrisma.prisma;
 };
 

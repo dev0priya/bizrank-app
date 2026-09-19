@@ -9,11 +9,13 @@ export interface ProcessedBusiness {
     area: string | null;
     city: string | null;
     state: string | null;
+    postal_code: string | null;
     country: string | null;
     phone_number: string | null;
     website: string | null;
     email: string | null;
     google_maps_url: string | null;
+    cid?: string | null;
     rating: number | null;
     review_count: number | null;
     latitude: number | null;
@@ -21,6 +23,13 @@ export interface ProcessedBusiness {
     google_category: string | null;
     owner_name: string | null;
     business_status: string | null;
+}
+
+function cleanStr(val: any): string | null {
+    if (val === null || val === undefined) return null;
+    const str = String(val).trim();
+    if (!str || str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined') return null;
+    return str;
 }
 
 export class DataProcessor {
@@ -32,13 +41,62 @@ export class DataProcessor {
             const lat = (item.location && typeof item.location.lat === 'number') ? item.location.lat : (typeof item.latitude === 'number' ? item.latitude : null);
             const lng = (item.location && typeof item.location.lng === 'number') ? item.location.lng : (typeof item.longitude === 'number' ? item.longitude : null);
             
-            const rawMapsUrl = item.googleMapsUri || item.google_maps_url || item.url || item.mapsUrl || null;
-            const rawPlaceId = item.placeId || item.place_id || item.googlePlaceId || item.id || item.placeIdStr || null;
+            const rawMapsUrl = cleanStr(item.googleMapsUri || item.google_maps_url || item.url || item.mapsUrl);
+            const rawPlaceId = cleanStr(item.placeId || item.place_id || item.googlePlaceId || item.id || item.placeIdStr);
             const placeId = rawPlaceId || extractPlaceId(rawMapsUrl) || null;
-            const title = item.title || item.name || item.displayName?.text || "Unknown";
-            const address = item.address || item.full_address || item.formattedAddress || item.street || null;
-            const phone = item.phoneUnformatted || item.phone || item.phoneNumber || item.nationalPhoneNumber || null;
-            const rawWebsite = item.website || item.websiteUri || item.domain || null;
+            const title = cleanStr(item.title || item.name || item.displayName?.text) || "Unknown";
+            
+            // Extract individual address components directly from the listing's own actual data
+            const rawPostalCode = cleanStr(item.postalCode || item.postal_code || item.zipCode || item.zip || item.postal || item.pincode || item.pin);
+            const street = cleanStr(item.street);
+            const neighborhood = cleanStr(item.neighborhood || item.sublocality || item.subLocality || item.area);
+            const rawCity = cleanStr(item.city || item.locality);
+            const rawState = cleanStr(item.state || item.region || item.administrativeArea);
+            const country = cleanStr(item.countryCode || item.country);
+            const cid = cleanStr(item.cid || item.fid);
+
+            // Clean city (e.g. if scraper returned "New Delhi, Delhi", extract city part)
+            let city = rawCity;
+            if (city && city.includes(',')) {
+                city = cleanStr(city.split(',')[0]) || city;
+            }
+            const state = rawState;
+
+            // Extract the exact full address from the listing
+            const rawFormattedAddress = cleanStr(item.address || item.full_address || item.formattedAddress || item.formatted_address);
+            let fullAddress: string | null = null;
+
+            if (rawFormattedAddress) {
+                fullAddress = rawFormattedAddress;
+                // If postal code exists on listing but is missing from formatted address string, append it cleanly
+                if (rawPostalCode && !fullAddress.includes(rawPostalCode)) {
+                    if (country && fullAddress.toLowerCase().endsWith(country.toLowerCase())) {
+                        fullAddress = fullAddress.slice(0, -country.length).trim().replace(/,\s*$/, '') + ` ${rawPostalCode}, ${country}`;
+                    } else {
+                        fullAddress = `${fullAddress}, ${rawPostalCode}`;
+                    }
+                }
+            } else {
+                // If no pre-formatted address string, construct strictly from listing's OWN scraped fields
+                // NEVER inject the user's search query location
+                const parts = [street, neighborhood, city, state, rawPostalCode, country].filter(Boolean);
+                if (parts.length > 0) {
+                    fullAddress = parts.join(', ');
+                }
+            }
+
+            // Extract postal code from address if missing from explicit postal code field
+            let postalCode = rawPostalCode;
+            if (!postalCode && fullAddress) {
+                // Match 6-digit Indian PIN code or standard 5-digit ZIP code
+                const pinMatch = fullAddress.match(/\b\d{6}\b/) || fullAddress.match(/\b\d{5}\b/);
+                if (pinMatch) {
+                    postalCode = pinMatch[0];
+                }
+            }
+
+            const phone = cleanStr(item.phoneUnformatted || item.phone || item.phoneNumber || item.nationalPhoneNumber);
+            const rawWebsite = cleanStr(item.website || item.websiteUri || item.domain);
             const rating = typeof item.totalScore === 'number' ? item.totalScore : (typeof item.rating === 'number' ? item.rating : (typeof item.stars === 'number' ? item.stars : null));
             const reviewCount = typeof item.reviewsCount === 'number' ? item.reviewsCount : (typeof item.review_count === 'number' ? item.review_count : (typeof item.reviews === 'number' ? item.reviews : null));
             
@@ -46,29 +104,31 @@ export class DataProcessor {
                 provider: item.provider || 'apify',
                 place_id: placeId,
                 business_name: title,
-                category: item.categoryName || searchCategory || null,
-                full_address: address,
-                area: item.neighborhood || item.sublocality || item.area || null,
-                city: item.city || item.locality || null,
-                state: item.state || item.region || null,
-                country: item.countryCode || item.country || null,
+                category: cleanStr(item.categoryName) || searchCategory || null,
+                full_address: fullAddress,
+                area: neighborhood,
+                city: city,
+                state: state,
+                postal_code: postalCode,
+                country: country,
                 phone_number: phone,
                 website: normalizeWebsiteUrl(rawWebsite),
-                email: Array.isArray(item.emails) && item.emails.length > 0 ? item.emails[0] : (typeof item.email === 'string' ? item.email : null),
+                email: Array.isArray(item.emails) && item.emails.length > 0 ? cleanStr(item.emails[0]) : cleanStr(item.email),
                 google_maps_url: resolveGoogleMapsUrl({
                     provider: item.provider || 'apify',
                     placeId,
                     googleMapsUri: rawMapsUrl,
                     placeName: title,
-                    address
+                    address: fullAddress
                 }),
+                cid,
                 rating,
                 review_count: reviewCount,
                 latitude: lat,
                 longitude: lng,
-                google_category: item.categoryName || null,
-                owner_name: item.ownerTitle || item.ownerName || null,
-                business_status: item.status || item.businessStatus || null
+                google_category: cleanStr(item.categoryName),
+                owner_name: cleanStr(item.ownerTitle || item.ownerName),
+                business_status: cleanStr(item.status || item.businessStatus)
             };
 
             // Only add if it has a place_id or google_maps_url or valid title
@@ -80,11 +140,14 @@ export class DataProcessor {
         const initialCount = processedRecords.length;
         
         // Deduplicate based on place_id primarily, fallback to google_maps_url, fallback to composite key
+        // Ensure same-name businesses at different locations are NEVER conflated or deduplicated
         const uniqueRecordsMap = new Map<string, ProcessedBusiness>();
         for (const record of processedRecords) {
             const key = record.place_id 
                 ? `${record.provider || 'unknown'}:${record.place_id}` 
-                : (record.google_maps_url || `${record.business_name}::${record.full_address || ''}`);
+                : (record.google_maps_url 
+                    ? record.google_maps_url 
+                    : `${record.business_name}::${record.full_address || ''}::${record.latitude ?? ''},${record.longitude ?? ''}`);
             if (key && !uniqueRecordsMap.has(key)) {
                 uniqueRecordsMap.set(key, record);
             }

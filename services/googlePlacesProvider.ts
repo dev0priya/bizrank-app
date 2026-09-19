@@ -37,11 +37,18 @@ export class GooglePlacesProvider implements BusinessProvider {
             throw new Error('GOOGLE_MAPS_API_KEY is missing.');
         }
 
-        const b64 = datasetId.replace('places-dataset-', '');
         let params: SearchParams = {};
-        try {
-            params = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
-        } catch(e) {}
+        if (datasetId && datasetId.startsWith('places-dataset-')) {
+            const b64 = datasetId.replace('places-dataset-', '');
+            if (b64) {
+                try {
+                    const decoded = typeof Buffer !== 'undefined'
+                        ? Buffer.from(b64, 'base64').toString('utf8')
+                        : decodeURIComponent(escape(atob(b64)));
+                    params = JSON.parse(decoded);
+                } catch(e) {}
+            }
+        }
 
         const { country, state, district, city, area, category, maxResults = 20 } = params;
         
@@ -62,7 +69,7 @@ export class GooglePlacesProvider implements BusinessProvider {
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Goog-Api-Key': this.apiKey,
-                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.googleMapsUri,places.websiteUri,places.internationalPhoneNumber,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.businessStatus,places.types'
+                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.location,places.googleMapsUri,places.websiteUri,places.internationalPhoneNumber,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.businessStatus,places.types'
                 },
                 body: JSON.stringify({ textQuery: query, maxResultCount: Math.min(maxResults, 20) })
             });
@@ -82,32 +89,60 @@ export class GooglePlacesProvider implements BusinessProvider {
                 const detailsRes = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
                     headers: {
                         'X-Goog-Api-Key': this.apiKey,
-                        'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,googleMapsUri,websiteUri,internationalPhoneNumber,nationalPhoneNumber,rating,userRatingCount,businessStatus,types'
+                        'X-Goog-FieldMask': 'id,displayName,formattedAddress,addressComponents,location,googleMapsUri,websiteUri,internationalPhoneNumber,nationalPhoneNumber,rating,userRatingCount,businessStatus,types'
                     }
                 });
                 const detailsData = await detailsRes.json();
 
                 if (!detailsRes.ok) continue;
                 const d = detailsData;
+
+                let street: string | null = null;
+                let neighborhood: string | null = null;
+                let locality: string | null = null;
+                let stateComponent: string | null = null;
+                let postalCode: string | null = null;
+                let countryCode = "IN";
+
+                const components = Array.isArray(d.addressComponents) ? d.addressComponents : (Array.isArray(place.addressComponents) ? place.addressComponents : []);
+                for (const comp of components) {
+                    const types: string[] = comp.types || [];
+                    if (types.includes('route') || types.includes('street_number')) {
+                        street = street ? `${comp.longText || ''} ${street}`.trim() : (comp.longText || null);
+                    } else if (types.includes('sublocality') || types.includes('sublocality_level_1') || types.includes('neighborhood')) {
+                        neighborhood = comp.longText || null;
+                    } else if (types.includes('locality')) {
+                        locality = comp.longText || null;
+                    } else if (types.includes('administrative_area_level_1')) {
+                        stateComponent = comp.longText || null;
+                    } else if (types.includes('postal_code')) {
+                        postalCode = comp.longText || null;
+                    } else if (types.includes('country')) {
+                        countryCode = comp.shortText || comp.longText || "IN";
+                    }
+                }
                 
                 items.push({
                     provider: 'google_places',
                     placeId: placeId,
-                    title: d.displayName?.text,
+                    title: d.displayName?.text || place.displayName?.text,
                     categoryName: category,
-                    address: d.formatted_address,
-                    neighborhood: area,
-                    city: city,
-                    state: state,
-                    countryCode: "IN",
+                    address: d.formattedAddress || d.formatted_address || place.formattedAddress || null,
+                    street: street,
+                    neighborhood: neighborhood,
+                    city: locality,
+                    state: stateComponent,
+                    postalCode: postalCode,
+                    countryCode: countryCode,
                     phoneUnformatted: d.internationalPhoneNumber || d.nationalPhoneNumber || null,
                     website: d.websiteUri || null,
-                    googleMapsUri: d.googleMapsUri || null,
+                    googleMapsUri: d.googleMapsUri || place.googleMapsUri || null,
+                    url: d.googleMapsUri || place.googleMapsUri || null,
                     totalScore: d.rating || null,
                     reviewsCount: d.userRatingCount || 0,
                     location: {
-                        lat: d.location?.latitude || null,
-                        lng: d.location?.longitude || null
+                        lat: d.location?.latitude ?? place.location?.latitude ?? null,
+                        lng: d.location?.longitude ?? place.location?.longitude ?? null
                     }
                 });
             }
